@@ -1,13 +1,25 @@
 # Progress
 
-**Current phase:** 3 — Search
-**Branch:** phase-3-search
+**Current phase:** 4 — Answer engine + evals
+**Branch:** phase-4-answers
 
 ## Done (2026-10-21)
 - uv package (Python 3.12), typer + dev deps (ruff, mypy, pytest, pytest-cov, pre-commit, respx)
 - Makefile (stubs for later phases), pytest markers, ruff/mypy/coverage config
 - .gitignore, .gitattributes, .env.example, pre-commit, GitHub Actions CI
 - `make check` exit 0 (2 passed, 1 xfailed, coverage 100%); CI green on PR #1 (merged)
+
+## Phase 4 — Answer engine + evals (branch `phase-4-answers`)
+Done (2026-10-22): `safetylens ask` = planner (claude-haiku-5-5, structured output) -> resolver (aliases +
+rapidfuzz, asks when unsure) -> per-intent SQL -> rerank retrieval (8 complaints) -> writer
+(claude-sonnet-5-5, server-side refusal fallback) -> validator (numbers from SQL, citations from evidence and
+DB) -> one retry -> deterministic template fallback. Budget caps checked before every call (ask $2/day,
+eval $5/day; JSONL ledger without prompts). Golden set `evals/golden.yaml`: 40 items (34 + 6 out-of-scope),
+facts from SQL via `scripts/golden_facts.py`, owner-reviewed. 125 tests (FakeLLM only), `make check` exit 0.
+`make eval` (2026-10-22): numbers_grounded 100%, citations_valid 100%, citations_supportive 98%,
+golden pass 90% (36/40), refusals 6/6, first draft valid 82%, p50 6.0 s / p95 13.7 s, mean cost $0.0127
+per question (+ $0.41 judge for the run) -> PASS. Failures: g04 (planner chose examples for an ambiguous
+"what steering problems" question), g15/g31/g33 (one unsupported citation each).
 
 ## Phase 3 — Search (branch `phase-3-search`; D8 miss accepted by owner)
 Done (2026-10-22): DuckDB fts BM25 over `complaint_docs`; bge-small-en-v1.5 embeddings on GPU
@@ -57,11 +69,13 @@ Owner decisions (2026-10-21):
 `recalls_sample.txt` (200 rows), built by `scripts/make_fixtures.py`, read by `tests/ingest/test_real_sample.py`.
 
 ## Next up
-1. Owner re-locks protected files; push `phase-3-search`, PR (D8 miss documented), merge, `/learn`
-2. Phase 4: QueryPlan + planner (Anthropic, model from settings), vehicle resolver (aliases + rapidfuzz)
-3. Phase 4: writer + validator (numbers grounded, citations valid), FakeLLM tests, budget guard, `safetylens ask`
+1. Owner: re-lock protected files; `/phase-check 4`; spot-check 10 judge verdicts (needs a judge log, see notes)
+2. Push `phase-4-answers`, PR, merge, `/learn`
+3. Phase 5: FastAPI + HTMX UI (`/`, `/ask`, record pages), Altair charts, disclaimer; cut p95 below 8 s
 
 ## Non-blocking review notes
+- Phase 4: judge verdicts are only counted, not logged; add a git-ignored log (answer sentence + ODI + verdict) so the owner can spot-check 10
+- Phase 4: p95 13.7 s (D12 needs < 8 s in Phase 5); retries (18% of questions) and reranker load dominate
 - Phase 2 review: build rollback path and the `crosscheck` CLI command are untested
 - Phase 2 review: dq_complaint_attrs_consistent omits fail_date, miles, veh_speed, state (also any_value'd)
 - Phase 2 review: recalls_by_vehicle ignores received_from/to silently; document or reject
@@ -89,9 +103,9 @@ Owner decisions (2026-10-21):
 | Crosscheck vs live API (10 vehicles) | 10/10, max diff 0.00% | 2026-10-22 |
 | Embedding throughput (docs/s) | 769 (RTX 4060 Ti) | 2026-10-22 |
 | Hybrid recall@10 (test split) | 0.770 hybrid / 0.777 reranked | 2026-10-22 |
-| Golden pass rate | – | – |
-| p95 latency | – | – |
-| Mean cost / question | – | – |
+| Golden pass rate | 90% (36/40), refusals 6/6 | 2026-10-22 |
+| p95 latency | 13.7 s (p50 6.0 s) | 2026-10-22 |
+| Mean cost / question | $0.0127 (+ judge $0.41 per eval run) | 2026-10-22 |
 
 ## Phase log
 | Phase | Status | Gate result | Date |
@@ -100,7 +114,7 @@ Owner decisions (2026-10-21):
 | 1 Ingest | done | make check, make dq, pytest -m idempotent exit 0; fixture committed | 2026-10-21 |
 | 2 Analytics | done (/phase-check PASS, 0 blocking) | make check, make dq exit 0; crosscheck 10/10 exact | 2026-10-22 |
 | 3 Search | done with D8 miss (owner accepted) | rerank recall@10 test 0.777 (< 0.80) | 2026-10-22 |
-| 4 Answers | not started | – | – |
+| 4 Answers | gates pass (phase-check pending) | make eval PASS: D5 100%, D6 100%, D7 98%, D9 90%, 6/6 | 2026-10-22 |
 | 5 Web app | not started | – | – |
 | 6 Polish | not started | – | – |
 
