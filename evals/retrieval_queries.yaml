@@ -1,0 +1,76 @@
+# Retrieval eval queries, written 2026-10-22 BEFORE any search results were seen (so they are not
+# tuned to any method). Relevance judgments live in the protected evals/retrieval_labels.yaml.
+# Mix of plain wording ("slams on the brakes by itself") and specific terms ("4xe", "eTorque", "CVT").
+queries:
+  # Tesla Model Y 2023
+  - {id: q01, make: TESLA, model: MODEL Y, year: 2023, query: "car slams on the brakes by itself on the highway with nothing in front"}
+  - {id: q02, make: TESLA, model: MODEL Y, year: 2023, query: "steering wheel came loose and detached while driving"}
+  - {id: q03, make: TESLA, model: MODEL Y, year: 2023, query: "front suspension control arm broke and the wheel collapsed"}
+  - {id: q04, make: TESLA, model: MODEL Y, year: 2023, query: "touchscreen went black and I lost the backup camera and defrost"}
+  - {id: q05, make: TESLA, model: MODEL Y, year: 2023, query: "no heat in cold weather, heat pump failed and windows fogged"}
+  # Ford F-150 2021
+  - {id: q06, make: FORD, model: F-150, year: 2021, query: "transmission slams into gear and downshifts harshly"}
+  - {id: q07, make: FORD, model: F-150, year: 2021, query: "rear axle hub bolt broke and the truck rolled while in park"}
+  - {id: q08, make: FORD, model: F-150, year: 2021, query: "windshield wipers stopped working while driving in the rain"}
+  - {id: q09, make: FORD, model: F-150, year: 2021, query: "tailgate opened by itself while driving"}
+  - {id: q10, make: FORD, model: F-150, year: 2021, query: "battery keeps dying and the truck will not start"}
+  # Jeep Wrangler 2021
+  - {id: q11, make: JEEP, model: WRANGLER, year: 2021, query: "death wobble, steering shakes violently after hitting a bump"}
+  - {id: q12, make: JEEP, model: WRANGLER, year: 2021, query: "4xe plug-in hybrid battery caught fire while parked"}
+  - {id: q13, make: JEEP, model: WRANGLER, year: 2021, query: "engine stalls while driving and I lose power steering"}
+  - {id: q14, make: JEEP, model: WRANGLER, year: 2021, query: "clutch pedal went to the floor and the manual transmission would not shift"}
+  - {id: q15, make: JEEP, model: WRANGLER, year: 2021, query: "cracked frame weld at the track bar mount"}
+  # Honda Civic 2022
+  - {id: q16, make: HONDA, model: CIVIC, year: 2022, query: "collision mitigation braking activated with nothing in the road"}
+  - {id: q17, make: HONDA, model: CIVIC, year: 2022, query: "electric power steering feels stuck or notchy when turning"}
+  - {id: q18, make: HONDA, model: CIVIC, year: 2022, query: "headlights flicker and turn off at night"}
+  - {id: q19, make: HONDA, model: CIVIC, year: 2022, query: "smell of gasoline in the engine oil, oil level rising"}
+  - {id: q20, make: HONDA, model: CIVIC, year: 2022, query: "infotainment screen freezes and the rear camera does not display"}
+  # Chevrolet Silverado 1500 2021
+  - {id: q21, make: CHEVROLET, model: SILVERADO 1500, year: 2021, query: "lifter failure, ticking noise and then the engine seized"}
+  - {id: q22, make: CHEVROLET, model: SILVERADO 1500, year: 2021, query: "transmission shudders and jerks at low speed"}
+  - {id: q23, make: CHEVROLET, model: SILVERADO 1500, year: 2021, query: "brake pedal became hard to push, vacuum pump failure"}
+  - {id: q24, make: CHEVROLET, model: SILVERADO 1500, year: 2021, query: "truck accelerated on its own, throttle stuck"}
+  - {id: q25, make: CHEVROLET, model: SILVERADO 1500, year: 2021, query: "strong fuel smell and gas leaking under the truck"}
+  # Tesla Model 3 2022
+  - {id: q26, make: TESLA, model: MODEL 3, year: 2022, query: "phantom braking with autopilot engaged"}
+  - {id: q27, make: TESLA, model: MODEL 3, year: 2022, query: "screen went blank so I could not use the defroster or see the speed"}
+  - {id: q28, make: TESLA, model: MODEL 3, year: 2022, query: "car lost power while driving and said it was shutting down"}
+  - {id: q29, make: TESLA, model: MODEL 3, year: 2022, query: "door handles would not open in freezing weather, trapped inside"}
+  - {id: q30, make: TESLA, model: MODEL 3, year: 2022, query: "clunking noise from the front suspension when going over bumps"}
+  # Nissan Rogue 2023
+  - {id: q31, make: NISSAN, model: ROGUE, year: 2023, query: "automatic emergency braking activates for no reason"}
+  - {id: q32, make: NISSAN, model: ROGUE, year: 2023, query: "CVT hesitates and loses power when accelerating"}
+  - {id: q33, make: NISSAN, model: ROGUE, year: 2023, query: "engine stalls at a stop light and does not restart"}
+  - {id: q34, make: NISSAN, model: ROGUE, year: 2023, query: "check engine light came on and the car went into limp mode"}
+  - {id: q35, make: NISSAN, model: ROGUE, year: 2023, query: "lane keep assist jerks the steering wheel"}
+  # Ram 1500 2021
+  - {id: q36, make: RAM, model: "1500", year: 2021, query: "air suspension dropped and the truck sits on the bump stops"}
+  - {id: q37, make: RAM, model: "1500", year: 2021, query: "eTorque system failure, engine stalls with battery warning"}
+  - {id: q38, make: RAM, model: "1500", year: 2021, query: "backup camera flickers and goes blank"}
+  - {id: q39, make: RAM, model: "1500", year: 2021, query: "vibration from the driveshaft at highway speed"}
+  - {id: q40, make: RAM, model: "1500", year: 2021, query: "rotary shifter will not shift out of park"}
+  # Toyota Highlander 2021
+  - {id: q41, make: TOYOTA, model: HIGHLANDER, year: 2021, query: "hybrid system failure warning and the car lost power"}
+  - {id: q42, make: TOYOTA, model: HIGHLANDER, year: 2021, query: "fuel pump failed and the engine stalled while driving"}
+  - {id: q43, make: TOYOTA, model: HIGHLANDER, year: 2021, query: "pre-collision system braked hard for shadows on the road"}
+  - {id: q44, make: TOYOTA, model: HIGHLANDER, year: 2021, query: "windshield cracked by itself with no impact"}
+  - {id: q45, make: TOYOTA, model: HIGHLANDER, year: 2021, query: "smell of gas inside the cabin"}
+  # Honda CR-V 2023
+  - {id: q46, make: HONDA, model: CR-V, year: 2023, query: "steering becomes heavy and sticks at highway speed"}
+  - {id: q47, make: HONDA, model: CR-V, year: 2023, query: "adaptive cruise control braked suddenly"}
+  - {id: q48, make: HONDA, model: CR-V, year: 2023, query: "gas smell and engine oil diluted with fuel"}
+  - {id: q49, make: HONDA, model: CR-V, year: 2023, query: "infotainment keeps rebooting and the camera goes out"}
+  - {id: q50, make: HONDA, model: CR-V, year: 2023, query: "power tailgate closed on its own"}
+  # Honda Prologue 2024
+  - {id: q51, make: HONDA, model: PROLOGUE, year: 2024, query: "reduced propulsion warning and the EV lost power while driving"}
+  - {id: q52, make: HONDA, model: PROLOGUE, year: 2024, query: "12 volt battery died and the car would not start"}
+  - {id: q53, make: HONDA, model: PROLOGUE, year: 2024, query: "car will not charge, charging fault at the charger"}
+  - {id: q54, make: HONDA, model: PROLOGUE, year: 2024, query: "screen went black and I could not see what gear I was in"}
+  - {id: q55, make: HONDA, model: PROLOGUE, year: 2024, query: "brake pedal feels soft, regenerative braking cuts out"}
+  # Ford Bronco Sport 2021
+  - {id: q56, make: FORD, model: BRONCO SPORT, year: 2021, query: "1.5 liter engine lost power and stalled"}
+  - {id: q57, make: FORD, model: BRONCO SPORT, year: 2021, query: "fuel injector leak, gas smell under the hood, fire risk"}
+  - {id: q58, make: FORD, model: BRONCO SPORT, year: 2021, query: "rear view camera shows a black screen"}
+  - {id: q59, make: FORD, model: BRONCO SPORT, year: 2021, query: "steering wheel shakes at highway speed"}
+  - {id: q60, make: FORD, model: BRONCO SPORT, year: 2021, query: "battery drained overnight and it would not start in the morning"}

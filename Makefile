@@ -14,6 +14,7 @@ help:
 
 install:
 	uv sync
+	uv run python -c "import duckdb; duckdb.install_extension('fts')"
 
 lint:
 	uv run ruff check .
@@ -41,10 +42,12 @@ check:
 data-dev:
 	uv run safetylens ingest --slice dev
 	uv run safetylens build
+	uv run safetylens index
 
 data-full:
 	uv run safetylens ingest --slice full
 	uv run safetylens build
+	uv run safetylens index
 
 dq:
 	uv run safetylens dq
@@ -53,7 +56,7 @@ crosscheck:
 	uv run safetylens crosscheck
 
 eval-retrieval:
-	$(call stub,eval-retrieval,3)
+	uv run safetylens eval-retrieval
 
 eval:
 	$(call stub,eval,4)
