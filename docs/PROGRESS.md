@@ -21,6 +21,13 @@ citations_supportive 98% (197/200), golden pass 92% (37/40), refusals 6/6, first
 p50 5.7 s / p95 13.0 s, mean cost $0.0125 per question (+ $0.41 judge per run) -> PASS. Failures: g04, g15,
 g33 (one unsupported citation each). First run: 90%, g04 failed on intent (planner varies on that question).
 Judge verdicts for the owner's spot-check: data/eval/judge-2026-10-22.md (git-ignored; 200 verdicts).
+`/phase-check 4` (2026-10-22): FAIL. Gates exit 0 (make check 126 passed; make eval third run: D5 100%,
+D6 100%, D7 99%, D9 95% (38/40), refusals 6/6, first draft 91%, p50 6.1 s / p95 11.7 s, $0.0117/question),
+but the reviewer found 4 blocking issues; the first three mean the D5 validator is weaker than its 100% says:
+1. dates are split into year/month/day, so any number 1-31 counts as grounded when a date is in the rows
+2. number words ("two owners") and digit+unit tokens ("60mph", "3x") are never checked
+3. the template fallback is not validated and includes the planner's free-text search_text
+4. answer/golden.py is 323 lines (> 300)
 
 ## Phase 3 — Search (branch `phase-3-search`; D8 miss accepted by owner)
 Done (2026-10-22): DuckDB fts BM25 over `complaint_docs`; bge-small-en-v1.5 embeddings on GPU
@@ -70,11 +77,17 @@ Owner decisions (2026-10-21):
 `recalls_sample.txt` (200 rows), built by `scripts/make_fixtures.py`, read by `tests/ingest/test_real_sample.py`.
 
 ## Next up
-1. Owner: re-lock protected files; spot-check 10 verdicts in data/eval/judge-2026-10-22.md; `/phase-check 4`
-2. Push `phase-4-answers`, PR, merge, `/learn`
+1. Fix the 4 blocking items with tests (dates as whole tokens, number words + units, validate the template and
+   drop LLM text from it, split golden.py); re-run `make eval` (expect lower first-draft rate, maybe more fallbacks)
+2. Owner: spot-check 10 judge verdicts; re-run `/phase-check 4`; then push, PR, `/learn`
 3. Phase 5: FastAPI + HTMX UI (`/`, `/ask`, record pages), Altair charts, disclaimer; cut p95 below 8 s
 
 ## Non-blocking review notes
+- Phase 4 review: always use fallbacks="default" instead of the FALLBACK_CAPABLE list; unknown fallback price should not crash after paying
+- Phase 4 review: planner errors show the safety-refusal text and count as correct refusals; add an "error" status
+- Phase 4 review: clarify text echoes planner make/model; BUDGET text claims numbers that aren't shown; only allow parsed received dates
+- Phase 4 review: existing_ids() queried per citation; a judge exception aborts the whole eval
+- Phase 4 review: golden facts use the same compute() code as the pipeline, so D9 can't catch compute/SQL bugs (only crosscheck can); report name answers-<date>.md vs PLAN's <date>.md
 - Phase 4: p95 13.7 s (D12 needs < 8 s in Phase 5); retries (18% of questions) and reranker load dominate
 - Phase 2 review: build rollback path and the `crosscheck` CLI command are untested
 - Phase 2 review: dq_complaint_attrs_consistent omits fail_date, miles, veh_speed, state (also any_value'd)
@@ -114,7 +127,7 @@ Owner decisions (2026-10-21):
 | 1 Ingest | done | make check, make dq, pytest -m idempotent exit 0; fixture committed | 2026-10-21 |
 | 2 Analytics | done (/phase-check PASS, 0 blocking) | make check, make dq exit 0; crosscheck 10/10 exact | 2026-10-22 |
 | 3 Search | done with D8 miss (owner accepted) | rerank recall@10 test 0.777 (< 0.80) | 2026-10-22 |
-| 4 Answers | gates pass (phase-check pending) | make eval PASS: D5 100%, D6 100%, D7 98%, D9 92%, 6/6 | 2026-10-22 |
+| 4 Answers | phase-check FAIL (4 blocking review items) | make eval PASS: D5 100%*, D6 100%, D7 99%, D9 95%, 6/6 | 2026-10-22 |
 | 5 Web app | not started | – | – |
 | 6 Polish | not started | – | – |
 
