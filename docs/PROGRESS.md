@@ -1,6 +1,6 @@
 # Progress
 
-**Current phase:** 4 — Answer engine + evals
+**Current phase:** 4 — Answer engine + evals (phase-check PASS; PR pending)
 **Branch:** phase-4-answers
 
 ## Done (2026-10-21)
@@ -103,11 +103,18 @@ Owner decisions (2026-10-21):
 `recalls_sample.txt` (200 rows), built by `scripts/make_fixtures.py`, read by `tests/ingest/test_real_sample.py`.
 
 ## Next up
-1. Owner: spot-check 10 verdicts in data/eval/judge-2026-10-22.md; re-run `/phase-check 4`
-3. Then push, PR, `/learn`
-3. Phase 5: FastAPI + HTMX UI (`/`, `/ask`, record pages), Altair charts, disclaimer; cut p95 below 8 s
+1. Push phase-4-answers, open the PR, CI green, merge; `/learn` for Phase 4
+2. Phase 5 task 1: FastAPI app + Jinja2/HTMX/Pico skeleton: `/` (question box), `/ask` partial rendering Answer
+   (text, citations linking to record pages, status), `safetylens serve`; TestClient tests with FakeLLM
+3. Phase 5 task 2: record pages `/complaint/{odino}` and `/recall/{campno}` (no PII) + Altair chart for
+   trend/top_components from ComputeResult, plus the "complaints are unverified, not defect rates" disclaimer
+4. Phase 5 task 3: cut p95 below 8 s: keep embedder/reranker loaded once per process, cache resolver/known
+   systems, measure where time goes (planner, retrieval, writer, retries), then `make e2e`
 
 ## Non-blocking review notes
+- Phase 4 round 3: "2023,42" hides 42 (lookbehind skips digits after a comma/period); SDK errors (529, rate limit,
+  connection) are not mapped to LLMError, so ask/eval crash; budget estimate uses the configured model's price but
+  fallback may serve a pricier one; judge checks only the first sentence citing each ODI; ordinals not flagged
 - Phase 4 re-review: ".5"/"1e5" slip the number regex; fraction words (third, quarter) not flagged; compare template cites only the first vehicle's reports; scripts/golden_facts.py is 463 lines
 - Phase 4 review: always use fallbacks="default" instead of the FALLBACK_CAPABLE list; unknown fallback price should not crash after paying
 - Phase 4 review: planner errors show the safety-refusal text and count as correct refusals; add an "error" status
@@ -143,8 +150,8 @@ Owner decisions (2026-10-21):
 | Embedding throughput (docs/s) | 769 (RTX 4060 Ti) | 2026-10-22 |
 | Hybrid recall@10 (test split) | 0.770 hybrid / 0.777 reranked | 2026-10-22 |
 | Golden pass rate | 92% (37/40), refusals 6/6 (strict validator) | 2026-10-22 |
-| p95 latency | 10.3 s (p50 6.4 s) | 2026-10-22 |
-| Mean cost / question | $0.0140 (+ judge $0.40 per eval run) | 2026-10-22 |
+| p95 latency | 12.4 s (p50 7.8 s) | 2026-10-22 |
+| Mean cost / question | $0.0161 (+ judge $0.38 per eval run) | 2026-10-22 |
 
 ## Phase log
 | Phase | Status | Gate result | Date |
@@ -153,7 +160,7 @@ Owner decisions (2026-10-21):
 | 1 Ingest | done | make check, make dq, pytest -m idempotent exit 0; fixture committed | 2026-10-21 |
 | 2 Analytics | done (/phase-check PASS, 0 blocking) | make check, make dq exit 0; crosscheck 10/10 exact | 2026-10-22 |
 | 3 Search | done with D8 miss (owner accepted) | rerank recall@10 test 0.777 (< 0.80) | 2026-10-22 |
-| 4 Answers | blocking items fixed; phase-check re-run pending | make eval PASS: D5 100%, D6 100%, D7 99%, D9 92%, 6/6 | 2026-10-22 |
+| 4 Answers | done (/phase-check PASS, 0 blocking) | make check 140 passed; make eval PASS: D5 100%, D6 100%, D7 98%, D9 92%, 6/6 | 2026-10-22 |
 | 5 Web app | not started | – | – |
 | 6 Polish | not started | – | – |
 
