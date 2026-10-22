@@ -42,6 +42,14 @@ Full `make eval` after these changes: D5 100%, D6 100%, D7 98%, D9 90% (36/40), 
 valid 50% (16 of the 20 rejected drafts used a number word, almost all "one"), 4 template fallbacks,
 p50 6.9 s / p95 13.3 s, $0.0160/question (+ $0.38 judge) -> PASS. Failures: g13, g15 (writer, 1 unsupported
 citation each), g31, g34 (compare fallbacks, 2/3 supported). Spot-check file: data/eval/judge-2026-10-22.md.
+`/phase-check 4` re-run (2026-10-22): FAIL. Gates exit 0 (make check 132 passed; make eval D5 100%, D6 100%,
+D7 98%, D9 90%, refusals 6/6, first draft 53%, p50 7.0 s / p95 13.9 s, $0.0155/question). Reviewer confirmed the
+4 earlier fixes and found 2 new blocking items:
+1. campaign ids without brackets ("recall 22V100000", "(22V100000)", "[22V1, 23V2]", lowercase) skip the citation
+   check (rule 2) -> also match bare campaign ids in citations_in, with tests for each form
+2. digit+unit tokens are counted in prose but ignored in SQL values, so real components like
+   "ELECTRICAL SYSTEM:12V/24V/48V BATTERY:CABLES" make both the writer and the template fail ("error")
+   -> allow digits from SQL values with or without a unit; template test with such a component
 
 ## Phase 3 — Search (branch `phase-3-search`; D8 miss accepted by owner)
 Done (2026-10-22): DuckDB fts BM25 over `complaint_docs`; bge-small-en-v1.5 embeddings on GPU
@@ -91,11 +99,13 @@ Owner decisions (2026-10-21):
 `recalls_sample.txt` (200 rows), built by `scripts/make_fixtures.py`, read by `tests/ingest/test_real_sample.py`.
 
 ## Next up
-1. Owner: spot-check 10 verdicts in data/eval/judge-2026-10-22.md; `/phase-check 4`
+1. Fix the 2 new blocking items with tests; re-run `make eval`; owner re-runs `/phase-check 4`
+   (owner: spot-check 10 verdicts in data/eval/judge-2026-10-22.md meanwhile)
 3. Then push, PR, `/learn`
 3. Phase 5: FastAPI + HTMX UI (`/`, `/ask`, record pages), Altair charts, disclaimer; cut p95 below 8 s
 
 ## Non-blocking review notes
+- Phase 4 re-review: ".5"/"1e5" slip the number regex; fraction words (third, quarter) not flagged; compare template cites only the first vehicle's reports; scripts/golden_facts.py is 463 lines
 - Phase 4 review: always use fallbacks="default" instead of the FALLBACK_CAPABLE list; unknown fallback price should not crash after paying
 - Phase 4 review: planner errors show the safety-refusal text and count as correct refusals; add an "error" status
 - Phase 4 review: clarify text echoes planner make/model; BUDGET text claims numbers that aren't shown; only allow parsed received dates
@@ -140,7 +150,7 @@ Owner decisions (2026-10-21):
 | 1 Ingest | done | make check, make dq, pytest -m idempotent exit 0; fixture committed | 2026-10-21 |
 | 2 Analytics | done (/phase-check PASS, 0 blocking) | make check, make dq exit 0; crosscheck 10/10 exact | 2026-10-22 |
 | 3 Search | done with D8 miss (owner accepted) | rerank recall@10 test 0.777 (< 0.80) | 2026-10-22 |
-| 4 Answers | blocking items fixed; phase-check re-run pending | make eval PASS: D5 100%, D6 100%, D7 98%, D9 90%, 6/6 | 2026-10-22 |
+| 4 Answers | phase-check FAIL (2 new blocking items) | make eval PASS: D5 100%, D6 100%, D7 98%, D9 90%, 6/6 | 2026-10-22 |
 | 5 Web app | not started | – | – |
 | 6 Polish | not started | – | – |
 
