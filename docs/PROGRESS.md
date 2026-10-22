@@ -25,6 +25,8 @@ Gate D8 needs >= 0.80 -> FAIL. All splits: bm25 0.687, dense 0.719, hybrid 0.746
 Owner decision (2026-10-22, option a): accept the miss for now, keep labels and threshold unchanged,
 move to Phase 4 (planner component filter should tighten retrieval) and re-measure D8 in Phase 6.
 Test split has been looked at once; further tuning must be decided on dev queries only.
+`/phase-check 3` (2026-10-22): FAIL on D8 only. `make check` exit 0 (81 passed, 93%); `make eval-retrieval`
+exit 2 (rerank test 0.777); reviewer: 0 blocking, 7 non-blocking (listed below).
 
 ## Phase 2 — Normalize + analytics (branch `phase-2-analytics`)
 Done (2026-10-22): `safetylens build` (complaints, complaint_docs, recalls, component_systems,
@@ -62,6 +64,13 @@ Owner decisions (2026-10-21):
 3. Phase 4: writer + validator (numbers grounded, citations valid), FakeLLM tests, budget guard, `safetylens ask`
 
 ## Non-blocking review notes
+- Phase 3 review: PLAN.md D8 row still says "hybrid recall@10" (all queries); align it with the owner-approved gate (rerank, test split)
+- Phase 3 review: `eval-retrieval --rerank-depth` prints test scores during sweeps; add `--split dev` for sweeps; `rerank_depth or` treats 0 as unset (use `is None`)
+- Phase 3 review: RERANK_DEPTH constant duplicates Settings.rerank_depth; keep one source
+- Phase 3 review: search_dense.sql does not check text_sha; after `build` without `index`, dense/BM25 use stale data (have build warn or join on sha)
+- Phase 3 review: `_store_chunk` rollback untested; real embedder/reranker uncovered (add one @slow test)
+- Phase 3 review: owner should verify the 28 test-split labels before re-measuring D8 in Phase 6
+- Phase 3 review: add explicit `data/judging/` to .gitignore (worksheets hold full narratives)
 - Phase 2 review: build rollback path and the `crosscheck` CLI command are untested
 - Phase 2 review: dq_complaint_attrs_consistent omits fail_date, miles, veh_speed, state (also any_value'd)
 - Phase 2 review: recalls_by_vehicle ignores received_from/to silently; document or reject
