@@ -117,13 +117,23 @@ Latency work (10-item subset of slow items, same ids each run):
 | baseline | 30% | 10.3 / 14.1 s | 70% |
 | writer gets allowed_numbers; narrative campaign ids not citable | 50% | 8.2 / 12.3 s | 90% |
 | + writer effort low (env only, not yet in .env) | 70% | 6.7 / 13.2 s | 100% |
-| + <= 120 words, explicit "never the word one", max_tokens 2000 | not measured: API credit ran out mid-run | | |
-Writer output ~400 tokens takes ~4 s; the p95 tail is the retry (second full writer call), mostly the word "one".
+| + <= 120 words, explicit "never the word one", max_tokens 2000 (effort low in .env) | 70% | 6.3 / 8.7 s | 90% |
+Full `make eval` (40 items), 2026-10-22:
+| run | first draft ok | p50 / p95 | D7 | golden | result |
+|---|---|---|---|---|---|
+| 120 words, Sonnet writer | 100% | 4.9 / 8.1 s | 98% | 90% | PASS (D12 miss by 0.1 s) |
+| 100 words, at most 3 components | 88% | 4.8 / 10.1 s | 97% | 90% | PASS, slower: reverted |
+| Haiku writer (env only) | 50% | 4.4 / 7.1 s | 87% | 68% | FAIL: rejected |
+| 120 words, Sonnet (final, committed report) | 85% | 4.6 / 9.8 s | 98% | 90% (6/6) | PASS |
+D12 decision (owner, 2026-10-22): accepted as a near-miss, like D8 in Phase 3. The tail is API response time
+variance (writer_1 p95 5.8-7.1 s across identical runs) plus the occasional retry; p95 of 40 is set by 2 answers.
+Cost per question fell from $0.0161 to $0.0121. Haiku is fast but its citations often don't support the sentence.
 
 ## Next up
-1. Owner: add API credit; set `SAFETYLENS_WRITER_EFFORT=low` in .env if the full eval confirms it
-2. Re-run the 10-item subset with the 120-word prompt; then full `make eval` -> D12 (p95 < 8 s) + D5/D6/D7/D9
-3. Owner: `make serve` and try a question; then `/phase-check 5`, PR, `/learn`
+1. Owner: `make serve`, try a question in the browser; spot-check judge verdicts in data/eval/judge-2026-10-22.md
+2. Owner: `/phase-check 5` (gate: make check, make e2e; D12 recorded as accepted miss), then PR, `/learn`
+3. Phase 6: answer cache keyed by normalized plan (also cuts repeat-question latency to ~0), error pages, Dockerfile,
+   README + data card + eval table + demo GIF, `make acceptance` on a fresh clone
 
 ## Non-blocking review notes
 - Phase 4 round 3: "2023,42" hides 42 (lookbehind skips digits after a comma/period); SDK errors (529, rate limit,
@@ -164,8 +174,8 @@ Writer output ~400 tokens takes ~4 s; the p95 tail is the retry (second full wri
 | Embedding throughput (docs/s) | 769 (RTX 4060 Ti) | 2026-10-22 |
 | Hybrid recall@10 (test split) | 0.770 hybrid / 0.777 reranked | 2026-10-22 |
 | Golden pass rate | 92% (37/40), refusals 6/6 (strict validator) | 2026-10-22 |
-| p95 latency | 12.4 s (p50 7.8 s) | 2026-10-22 |
-| Mean cost / question | $0.0161 (+ judge $0.38 per eval run) | 2026-10-22 |
+| p95 latency | 9.8 s final run (8.1-10.1 s range; p50 4.6 s) | 2026-10-22 |
+| Mean cost / question | $0.0121 (+ judge $0.39 per eval run) | 2026-10-22 |
 
 ## Phase log
 | Phase | Status | Gate result | Date |
@@ -175,7 +185,7 @@ Writer output ~400 tokens takes ~4 s; the p95 tail is the retry (second full wri
 | 2 Analytics | done (/phase-check PASS, 0 blocking) | make check, make dq exit 0; crosscheck 10/10 exact | 2026-10-22 |
 | 3 Search | done with D8 miss (owner accepted) | rerank recall@10 test 0.777 (< 0.80) | 2026-10-22 |
 | 4 Answers | done (/phase-check PASS, 0 blocking) | make check 140 passed; make eval PASS: D5 100%, D6 100%, D7 98%, D9 92%, 6/6 | 2026-10-22 |
-| 5 Web app | in progress: UI + e2e done, D12 pending (API credit) | make check 167 passed; make e2e 2 passed | 2026-10-22 |
+| 5 Web app | built; D12 missed, owner accepted; phase-check pending | make check 167 passed; make e2e 2 passed; make eval PASS, p95 9.8 s | 2026-10-22 |
 | 6 Polish | not started | – | – |
 
 ## Blockers / decisions needed
