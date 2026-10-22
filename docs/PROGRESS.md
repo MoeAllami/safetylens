@@ -1,7 +1,7 @@
 # Progress
 
-**Current phase:** 0 — Scaffold and guardrails
-**Branch:** phase-0-scaffold
+**Current phase:** 1 — Ingest
+**Branch:** phase-1-ingest
 
 ## Done (2026-10-21)
 - uv package (Python 3.12), typer + dev deps (ruff, mypy, pytest, pytest-cov, pre-commit, respx)
@@ -9,11 +9,17 @@
 - .gitignore, .gitattributes, .env.example, pre-commit, GitHub Actions CI
 - `make check` exit 0 (2 passed, 1 xfailed, coverage 100%); CI green on PR #1 (merged)
 
-## Next up (Phase 1 — Ingest, branch `phase-1-ingest`; start in plan mode)
-1. Confirm `/hooks` lists the project hooks (last open Phase 0 gate item)
-2. Download step: NHTSA flat files with checksum + If-Modified-Since (load `nhtsa-data` skill first)
-3. Parse by position (49 or 51 fields), drop PII columns at ingest, write Parquet
-Then: DuckDB `complaints_raw`, `recalls_raw`, `ingest_runs`; 2,000-row fixture (ask owner first); `make dq`.
+## Phase 1 — Ingest (branch `phase-1-ingest`, in progress)
+Done: layouts verified against docs/data/CMPL.txt and RCL.txt (recalls have 29 fields, no PII);
+download (ETag / Last-Modified, atomic), position-based parser (drops PII), Parquet, DuckDB
+`complaints_raw` / `recalls_raw` / `ingest_runs`, `safetylens ingest|dq`, 23 tests; `make check` exit 0;
+`pytest tests/ingest -m idempotent` exit 0.
+
+## Next up
+1. Owner OKs the real download; run `make data-dev` then `make dq`; record row counts below
+2. If real data has duplicate (odino, component) or missing ODINO: stop and ask how to handle it
+3. Optional: 2,000-row real-sample fixture in tests/fixtures (owner must unlock protected files; PII blanked)
+4. `/phase-check 1`, open PR, then `/learn`
 
 ## Non-blocking review notes
 - Makefile `check` duplicates `lint`/`typecheck` recipes; could be `check: lint typecheck` + pytest
@@ -34,7 +40,7 @@ Then: DuckDB `complaints_raw`, `recalls_raw`, `ingest_runs`; 2,000-row fixture (
 | Phase | Status | Gate result | Date |
 |---|---|---|---|
 | 0 Scaffold | done pending /hooks check | make check exit 0; CI green | 2026-10-21 |
-| 1 Ingest | not started | – | – |
+| 1 Ingest | in progress | – | – |
 | 2 Analytics | not started | – | – |
 | 3 Search | not started | – | – |
 | 4 Answers | not started | – | – |
