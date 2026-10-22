@@ -16,6 +16,7 @@ from collections.abc import Iterable
 from typing import Any
 
 CITATION = re.compile(r"\[([0-9]{2}[A-Z][0-9]{6}|[0-9]{6,9})\]")
+CAMPAIGN = re.compile(r"(?<![A-Za-z0-9])(\d{2}[A-Za-z]\d{6})(?![A-Za-z0-9])")
 DATE = re.compile(r"(?<![\d-])(\d{4})-(\d{2})(?:-(\d{2}))?(?![\d-])")
 NUMBER = re.compile(r"(?<![A-Za-z0-9.,])(\d[\d,]*(?:\.\d+)?)([A-Za-z]*)(?![A-Za-z0-9])")
 NUMBER_WORDS = frozenset(
@@ -98,11 +99,13 @@ def numbers_from_values(values: Iterable[Any]) -> set[str]:
         text = value if isinstance(value, str) else json.dumps(value, default=str)
         dates, rest = _dates(text)
         found |= dates
-        found |= {
-            canonical(m.group(1).rstrip(",")) for m in NUMBER.finditer(rest) if not m.group(2)
-        }
+        # Digits with a unit count too ("12V" in a component name allows 12), matching numbers_in.
+        found |= {canonical(m.group(1).rstrip(",")) for m in NUMBER.finditer(rest)}
     return found
 
 
 def citations_in(text: str) -> list[str]:
-    return list(dict.fromkeys(CITATION.findall(text)))
+    """Cited ids: anything in [brackets], plus recall campaign ids written any other way
+    ("recall 22V100000", "(22v100000)", "[22V100000, 23V200000]"), so none skips the check."""
+    ids = CITATION.findall(text) + [c.upper() for c in CAMPAIGN.findall(text)]
+    return list(dict.fromkeys(ids))

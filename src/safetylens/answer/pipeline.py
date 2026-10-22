@@ -8,6 +8,7 @@ import datetime as dt
 import json
 import time
 from dataclasses import dataclass
+from itertools import zip_longest
 
 import duckdb
 
@@ -60,7 +61,7 @@ class Engine:
         if plan.intent not in RETRIEVE_INTENTS:
             return []
         k = EVIDENCE_K // len(vehicles)
-        ids: list[str] = []
+        per_vehicle: list[list[str]] = []
         for v in vehicles:
             f = vehicle_filter(v, plan, plan.component_system)
             hits = search(
@@ -73,7 +74,11 @@ class Engine:
                 reranker=self.reranker,
                 rerank_depth=self.rerank_depth,
             )
-            ids += [h.odino for h in hits]
+            per_vehicle.append([h.odino for h in hits])
+        # Interleave so the first few reports (the ones a fallback cites) cover every vehicle.
+        ids = list(
+            dict.fromkeys(odino for group in zip_longest(*per_vehicle) for odino in group if odino)
+        )
         rows = self.con.execute(load_sql("evidence_for"), {"odinos": ids}).fetchall()
         return [
             Evidence(
