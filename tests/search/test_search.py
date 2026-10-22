@@ -3,6 +3,7 @@ import pytest
 
 from safetylens.analytics.templates import VehicleFilter
 from safetylens.search.embed import EMBED_DIM, HashingEmbedder
+from safetylens.search.rerank import OverlapReranker
 from safetylens.search.search import rrf, search, snippet
 
 F150 = VehicleFilter(make="FORD", model="F-150", year_from=2022, year_to=2022)
@@ -68,3 +69,25 @@ def test_hashing_embedder_is_unit_length() -> None:
     vec = EMB.embed_query("brake pedal")
     assert len(vec) == EMBED_DIM
     assert sum(v * v for v in vec) == pytest.approx(1.0)
+
+
+def test_rerank_orders_by_reranker_score(search_db: duckdb.DuckDBPyConnection) -> None:
+    # Fake score = shared words. Complaint 1 shares "pedal went to the floor" (5 words);
+    # complaint 2 shares only "pedal" (1 word).
+    hits = search(
+        search_db,
+        F150,
+        "pedal went to the floor",
+        method="rerank",
+        k=2,
+        embedder=EMB,
+        reranker=OverlapReranker(),
+        rerank_depth=4,
+    )
+    assert [(h.odino, h.score) for h in hits][0] == ("1", 5.0)
+    assert all(h.method == "rerank" for h in hits)
+
+
+def test_rerank_needs_a_reranker(search_db: duckdb.DuckDBPyConnection) -> None:
+    with pytest.raises(ValueError, match="needs a reranker"):
+        search(search_db, F150, "brakes", method="rerank", embedder=EMB)

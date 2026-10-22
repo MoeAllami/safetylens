@@ -18,10 +18,11 @@ from safetylens.crosscheck.crosscheck import crosscheck, format_table, load_vehi
 from safetylens.crosscheck.nhtsa_api import NhtsaApi
 from safetylens.dq import format_report, run_checks
 from safetylens.ingest.pipeline import DB_NAME, KINDS, run_ingest
-from safetylens.search import embed
+from safetylens.search import embed, rerank
 from safetylens.search.embed import Embedder
 from safetylens.search.evaluate import evaluate, format_summary, load_labels, write_markdown
 from safetylens.search.index import build_fts, embed_docs
+from safetylens.search.rerank import Reranker
 from safetylens.search.search import search, snippet
 from safetylens.store import db
 from safetylens.store.build import BUILT_TABLES, build
@@ -33,6 +34,7 @@ class SearchMethod(StrEnum):
     bm25 = "bm25"
     dense = "dense"
     hybrid = "hybrid"
+    rerank = "rerank"
 
 
 class SliceName(StrEnum):
@@ -95,6 +97,10 @@ def _embedder(settings: Settings) -> Embedder:
     )
 
 
+def _reranker(settings: Settings) -> Reranker:
+    return rerank.default_reranker(settings.rerank_model, settings.embed_device)
+
+
 @app.command()
 def index() -> None:
     """Build the BM25 index and embed any complaints without a current vector (resumable)."""
@@ -127,8 +133,8 @@ def search_cmd(
     year: Annotated[int | None, typer.Option(help="model year")] = None,
     component_system: Annotated[str | None, typer.Option(help="e.g. 'SERVICE BRAKES'")] = None,
     method: Annotated[
-        SearchMethod, typer.Option(help="bm25, dense or hybrid")
-    ] = SearchMethod.hybrid,
+        SearchMethod, typer.Option(help="bm25, dense, hybrid or rerank")
+    ] = SearchMethod.rerank,
     k: Annotated[int, typer.Option(help="results to return")] = 8,
 ) -> None:
     """Show the complaints that best match a problem description for one vehicle."""
@@ -137,8 +143,18 @@ def search_cmd(
         make=make, model=model, year_from=year, year_to=year, component_system=component_system
     )
     embedder = None if method is SearchMethod.bm25 else _embedder(settings)
+    reranker = _reranker(settings) if method is SearchMethod.rerank else None
     with db.connect(settings.data_dir / DB_NAME, read_only=True) as con:
-        hits = search(con, f, query, method=method.value, k=k, embedder=embedder)
+        hits = search(
+            con,
+            f,
+            query,
+            method=method.value,
+            k=k,
+            embedder=embedder,
+            reranker=reranker,
+            rerank_depth=settings.rerank_depth,
+        )
         for hit in hits:
             typer.echo(
                 f"{hit.rank:>2}. [{hit.odino}] score {hit.score:.4f}  {snippet(con, hit.odino)}"
@@ -153,12 +169,17 @@ def eval_retrieval(
         "evals/retrieval_labels.yaml"
     ),
     report_dir: Annotated[Path, typer.Option(help="where the report goes")] = Path("evals/reports"),
+    rerank_depth: Annotated[
+        int | None, typer.Option(help="override settings.rerank_depth (choose on dev only)")
+    ] = None,
 ) -> None:
-    """Score BM25, dense and hybrid on the judged queries; exit 1 unless the D8 gate holds."""
+    """Score bm25, dense, hybrid and rerank on judged queries; exit 1 unless the D8 gate holds."""
     settings = Settings()
     embedder = _embedder(settings)
+    reranker = _reranker(settings)
+    depth = rerank_depth or settings.rerank_depth
     with db.connect(settings.data_dir / DB_NAME, read_only=True) as con:
-        report = evaluate(con, load_labels(labels), embedder)
+        report = evaluate(con, load_labels(labels), embedder, reranker, rerank_depth=depth)
     path = write_markdown(report, report_dir)
     typer.echo(format_summary(report))
     typer.echo(f"report: {path}")

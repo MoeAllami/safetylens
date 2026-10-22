@@ -1,14 +1,18 @@
-"""Retrieval eval (gate D8): capped recall@10 for BM25, dense and hybrid on judged queries.
+"""Retrieval eval (gate D8): capped recall@10 for BM25, dense, hybrid and reranked hybrid.
 
 Why capped recall: a query can have 30 relevant complaints, but only 10 fit in the top 10, so
 plain recall could never reach 1.0. recall@10 = |relevant in top 10| / min(|relevant|, 10).
-Labels come from pooled judgments (top 20 of each method, judged by hand); complaints nobody
-judged count as not relevant, and how many of those reach a top 10 is reported as a warning.
+Labels come from pooled judgments (top 20 of BM25, dense and hybrid, judged by hand); complaints
+nobody judged count as not relevant, and how many of those reach a top 10 is reported.
+
+Why a dev/test split: settings (like rerank depth) are chosen by looking at dev queries (odd ids)
+only; the gate is measured on test queries (even ids), so tuning cannot inflate the number.
 """
 
 import datetime as dt
 from pathlib import Path
 from statistics import mean
+from typing import Literal
 
 import duckdb
 import yaml
@@ -16,11 +20,14 @@ from pydantic import BaseModel
 
 from safetylens.analytics.templates import VehicleFilter
 from safetylens.search.embed import Embedder
-from safetylens.search.search import Method, search
+from safetylens.search.rerank import Reranker
+from safetylens.search.search import METHOD_NAMES, RERANK_DEPTH, Method, search
 
-METHODS: tuple[Method, ...] = ("bm25", "dense", "hybrid")
+POOL_METHODS: tuple[Method, ...] = ("bm25", "dense", "hybrid")  # what the labels were pooled from
+GATE_METHOD: Method = "rerank"
 K = 10
 TARGET = 0.80
+Split = Literal["dev", "test"]
 
 
 class RetrievalQuery(BaseModel):
@@ -30,6 +37,10 @@ class RetrievalQuery(BaseModel):
     year: int
     query: str
     component_system: str | None = None
+
+    @property
+    def split(self) -> Split:
+        return "dev" if int(self.id.lstrip("q")) % 2 else "test"
 
     def vehicle_filter(self) -> VehicleFilter:
         return VehicleFilter(
@@ -48,24 +59,31 @@ class LabeledQuery(RetrievalQuery):
 
 class QueryResult(BaseModel):
     id: str
+    split: Split
     recall: dict[str, float]
     unjudged_in_top: dict[str, int]
 
 
 class RetrievalReport(BaseModel):
     date: dt.date
+    methods: list[Method]
     queries: list[QueryResult]
     skipped: list[str]  # queries with no relevant complaint (recall undefined)
 
-    def mean_recall(self, method: str) -> float:
-        return mean(q.recall[method] for q in self.queries) if self.queries else 0.0
+    def mean_recall(self, method: str, split: Split | None = None) -> float:
+        values = [q.recall[method] for q in self.queries if split is None or q.split == split]
+        return mean(values) if values else 0.0
+
+    def gate_method(self) -> Method:
+        return GATE_METHOD if GATE_METHOD in self.methods else "hybrid"
 
     def passed(self) -> bool:
-        hybrid = self.mean_recall("hybrid")
+        """Gate on test queries only: the production method reaches TARGET and beats both bases."""
+        best = self.mean_recall(self.gate_method(), "test")
         return (
-            hybrid >= TARGET
-            and hybrid > self.mean_recall("bm25")
-            and hybrid > self.mean_recall("dense")
+            best >= TARGET
+            and best > self.mean_recall("bm25", "test")
+            and best > self.mean_recall("dense", "test")
         )
 
 
@@ -86,18 +104,33 @@ def load_labels(path: Path) -> list[LabeledQuery]:
 
 
 def ranked_ids(
-    con: duckdb.DuckDBPyConnection, q: RetrievalQuery, method: Method, k: int, embedder: Embedder
+    con: duckdb.DuckDBPyConnection,
+    q: RetrievalQuery,
+    method: Method,
+    k: int,
+    embedder: Embedder,
+    reranker: Reranker | None = None,
+    rerank_depth: int = RERANK_DEPTH,
 ) -> list[str]:
-    hits = search(con, q.vehicle_filter(), q.query, method=method, k=k, embedder=embedder)
+    hits = search(
+        con,
+        q.vehicle_filter(),
+        q.query,
+        method=method,
+        k=k,
+        embedder=embedder,
+        reranker=reranker,
+        rerank_depth=rerank_depth,
+    )
     return [h.odino for h in hits]
 
 
 def pool(
     con: duckdb.DuckDBPyConnection, q: RetrievalQuery, embedder: Embedder, depth: int = 20
 ) -> list[str]:
-    """Union of every method's top `depth`: the candidates a person judges for one query."""
+    """Union of every pooling method's top `depth`: the candidates a person judges for one query."""
     seen: dict[str, None] = {}
-    for method in METHODS:
+    for method in POOL_METHODS:
         for odino in ranked_ids(con, q, method, depth, embedder):
             seen.setdefault(odino, None)
     return list(seen)
@@ -107,8 +140,12 @@ def evaluate(
     con: duckdb.DuckDBPyConnection,
     labels: list[LabeledQuery],
     embedder: Embedder,
+    reranker: Reranker | None = None,
+    *,
+    rerank_depth: int = RERANK_DEPTH,
     today: dt.date | None = None,
 ) -> RetrievalReport:
+    methods = [m for m in METHOD_NAMES if m != "rerank" or reranker is not None]
     results: list[QueryResult] = []
     skipped: list[str] = []
     for q in labels:
@@ -119,34 +156,45 @@ def evaluate(
         judged = relevant | set(q.not_relevant)
         recall: dict[str, float] = {}
         unjudged: dict[str, int] = {}
-        for method in METHODS:
-            top = ranked_ids(con, q, method, K, embedder)
+        for method in methods:
+            top = ranked_ids(con, q, method, K, embedder, reranker, rerank_depth)
             value = recall_at_k(top, relevant)
             recall[method] = 0.0 if value is None else value
             unjudged[method] = sum(1 for odino in top if odino not in judged)
-        results.append(QueryResult(id=q.id, recall=recall, unjudged_in_top=unjudged))
-    return RetrievalReport(date=today or dt.date.today(), queries=results, skipped=skipped)
+        results.append(QueryResult(id=q.id, split=q.split, recall=recall, unjudged_in_top=unjudged))
+    return RetrievalReport(
+        date=today or dt.date.today(), methods=methods, queries=results, skipped=skipped
+    )
 
 
 def format_summary(report: RetrievalReport) -> str:
-    lines = [f"{'method':<8} {'recall@10':>9} {'unjudged in top 10':>19}"]
-    for method in METHODS:
+    n_dev = sum(1 for q in report.queries if q.split == "dev")
+    n_test = len(report.queries) - n_dev
+    lines = [
+        f"{'method':<8} {'all':>6} {'dev':>6} {'test':>6} {'unjudged in top 10':>19}",
+    ]
+    for method in report.methods:
         unjudged = sum(q.unjudged_in_top[method] for q in report.queries)
-        lines.append(f"{method:<8} {report.mean_recall(method):>9.3f} {unjudged:>19}")
+        lines.append(
+            f"{method:<8} {report.mean_recall(method):>6.3f} "
+            f"{report.mean_recall(method, 'dev'):>6.3f} {report.mean_recall(method, 'test'):>6.3f} "
+            f"{unjudged:>19}"
+        )
     verdict = "PASS" if report.passed() else "FAIL"
     lines.append(
-        f"{verdict}: hybrid >= {TARGET:.2f} and beats bm25 and dense "
-        f"({len(report.queries)} queries, {len(report.skipped)} skipped)"
+        f"{verdict}: {report.gate_method()} recall@10 on test >= {TARGET:.2f} and beats bm25 and "
+        f"dense (dev {n_dev}, test {n_test}, skipped {len(report.skipped)})"
     )
     return "\n".join(lines)
 
 
 def write_markdown(report: RetrievalReport, report_dir: Path) -> Path:
-    """Numbers and ODI-free query ids only; never narratives."""
+    """Numbers and query ids only; never narratives."""
     report_dir.mkdir(parents=True, exist_ok=True)
     path = report_dir / f"retrieval-{report.date.isoformat()}.md"
+    header = "| query | split | " + " | ".join(report.methods) + " |"
     rows = [
-        f"| {q.id} | " + " | ".join(f"{q.recall[m]:.2f}" for m in METHODS) + " |"
+        f"| {q.id} | {q.split} | " + " | ".join(f"{q.recall[m]:.2f}" for m in report.methods) + " |"
         for q in report.queries
     ]
     body = [
@@ -156,8 +204,8 @@ def write_markdown(report: RetrievalReport, report_dir: Path) -> Path:
         format_summary(report),
         "```",
         "",
-        "| query | bm25 | dense | hybrid |",
-        "|---|---|---|---|",
+        header,
+        "|" + "---|" * (len(report.methods) + 2),
         *rows,
     ]
     if report.skipped:

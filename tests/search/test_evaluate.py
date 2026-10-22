@@ -14,6 +14,7 @@ from safetylens.search.evaluate import (
     recall_at_k,
     write_markdown,
 )
+from safetylens.search.rerank import OverlapReranker
 
 
 def _labeled(qid: str, query: str, relevant: list[str], not_relevant: list[str]) -> LabeledQuery:
@@ -36,20 +37,32 @@ def test_recall_is_capped_at_k() -> None:
     assert recall_at_k(ranked, set()) is None
 
 
-def _report(bm25: float, dense: float, hybrid: float) -> RetrievalReport:
+def _report(bm25: float, dense: float, rerank: float, split: str = "test") -> RetrievalReport:
     q = QueryResult(
-        id="q",
-        recall={"bm25": bm25, "dense": dense, "hybrid": hybrid},
-        unjudged_in_top={"bm25": 0, "dense": 0, "hybrid": 0},
+        id="q2",
+        split=split,  # type: ignore[arg-type]
+        recall={"bm25": bm25, "dense": dense, "hybrid": 0.0, "rerank": rerank},
+        unjudged_in_top={"bm25": 0, "dense": 0, "hybrid": 0, "rerank": 0},
     )
-    return RetrievalReport(date=dt.date(2026, 1, 1), queries=[q], skipped=[])
+    return RetrievalReport(
+        date=dt.date(2026, 1, 1),
+        methods=["bm25", "dense", "hybrid", "rerank"],
+        queries=[q],
+        skipped=[],
+    )
 
 
-def test_gate_requires_target_and_beating_both() -> None:
+def test_gate_requires_target_and_beating_both_on_test_split() -> None:
     assert _report(0.70, 0.80, 0.85).passed()
     assert not _report(0.70, 0.75, 0.79).passed()  # below 0.80
     assert not _report(0.85, 0.70, 0.85).passed()  # ties BM25 instead of beating it
     assert not _report(0.70, 0.90, 0.85).passed()  # dense alone is better
+    assert not _report(0.10, 0.10, 0.99, split="dev").passed()  # dev scores never count
+
+
+def test_split_is_by_query_number() -> None:
+    assert _labeled("q01", "x", [], []).split == "dev"
+    assert _labeled("q02", "x", [], []).split == "test"
 
 
 def test_evaluate_counts_unjudged_and_skips_empty(search_db: duckdb.DuckDBPyConnection) -> None:
@@ -59,6 +72,7 @@ def test_evaluate_counts_unjudged_and_skips_empty(search_db: duckdb.DuckDBPyConn
     ]
     report = evaluate(search_db, labels, HashingEmbedder(), today=dt.date(2026, 1, 2))
     assert report.skipped == ["q2"]
+    assert report.methods == ["bm25", "dense", "hybrid"]  # no reranker given, so no rerank column
     (q1,) = report.queries
     assert q1.recall == {"bm25": 1.0, "dense": 1.0, "hybrid": 1.0}
     assert q1.unjudged_in_top["bm25"] == 0  # BM25 only returns the one matching complaint
@@ -82,7 +96,7 @@ def test_markdown_report_has_no_narratives(
     path = write_markdown(report, tmp_path / "reports")
     text = path.read_text(encoding="utf-8")
     assert path.name == "retrieval-2026-01-02.md"
-    assert "| q1 | 1.00 | 1.00 | 1.00 |" in text
+    assert "| q1 | dev | 1.00 | 1.00 | 1.00 |" in text
     assert "TRANSMISSION" not in text
 
 
@@ -90,3 +104,11 @@ def test_committed_queries_file_parses() -> None:
     queries = load_queries(Path(__file__).parents[2] / "evals" / "retrieval_queries.yaml")
     assert len(queries) == 60
     assert len({q.id for q in queries}) == 60
+
+
+def test_evaluate_with_reranker_adds_rerank_column(search_db: duckdb.DuckDBPyConnection) -> None:
+    labels = [_labeled("q2", "transmission slams into gear", ["3"], ["4"])]
+    report = evaluate(search_db, labels, HashingEmbedder(), OverlapReranker(), rerank_depth=3)
+    assert report.methods == ["bm25", "dense", "hybrid", "rerank"]
+    assert report.queries[0].recall["rerank"] == 1.0
+    assert report.gate_method() == "rerank"

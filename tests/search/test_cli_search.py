@@ -6,8 +6,9 @@ from typer.testing import CliRunner
 
 from safetylens.cli import app
 from safetylens.ingest.pipeline import DB_NAME
-from safetylens.search import embed
+from safetylens.search import embed, rerank
 from safetylens.search.embed import Embedder, HashingEmbedder
+from safetylens.search.rerank import OverlapReranker
 
 runner = CliRunner()
 
@@ -22,6 +23,7 @@ def data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         return HashingEmbedder()
 
     monkeypatch.setattr(embed, "default_embedder", fake)
+    monkeypatch.setattr(rerank, "default_reranker", lambda *_: OverlapReranker())
     make_search_db(tmp_path, db_path=data / DB_NAME).close()
     return data
 
@@ -52,7 +54,7 @@ def test_eval_retrieval_command_writes_report_and_gates(data_dir: Path, tmp_path
     labels = tmp_path / "labels.yaml"
     labels.write_text(
         "queries:\n"
-        "  - {id: q1, make: FORD, model: F-150, year: 2022, query: transmission slams,"
+        "  - {id: q2, make: FORD, model: F-150, year: 2022, query: transmission slams,"
         " relevant: ['3'], not_relevant: ['4']}\n",
         encoding="utf-8",
     )
@@ -60,7 +62,7 @@ def test_eval_retrieval_command_writes_report_and_gates(data_dir: Path, tmp_path
     result = runner.invoke(
         app, ["eval-retrieval", "--labels", str(labels), "--report-dir", str(reports)]
     )
-    assert result.exit_code == 1  # every method scores 1.0, so hybrid does not beat the others
+    assert result.exit_code == 1  # every method scores 1.0, so rerank does not beat the others
     assert "FAIL" in result.output
     assert len(list(reports.glob("retrieval-*.md"))) == 1
 

@@ -1,13 +1,27 @@
 # Progress
 
-**Current phase:** 2 — Normalize + analytics
-**Branch:** phase-2-analytics
+**Current phase:** 3 — Search
+**Branch:** phase-3-search
 
 ## Done (2026-10-21)
 - uv package (Python 3.12), typer + dev deps (ruff, mypy, pytest, pytest-cov, pre-commit, respx)
 - Makefile (stubs for later phases), pytest markers, ruff/mypy/coverage config
 - .gitignore, .gitattributes, .env.example, pre-commit, GitHub Actions CI
 - `make check` exit 0 (2 passed, 1 xfailed, coverage 100%); CI green on PR #1 (merged)
+
+## Phase 3 — Search (branch `phase-3-search`, gate NOT met yet)
+Done (2026-10-22): DuckDB fts BM25 over `complaint_docs`; bge-small-en-v1.5 embeddings on GPU
+(428,507 docs in 557 s, 769 docs/s; resumable by (odino, narrative sha, model)); dense search by
+cosine within the vehicle filter; RRF hybrid; cross-encoder rerank (BAAI/bge-reranker-base) of the
+fused top 20; `safetylens index|search|eval-retrieval`; 81 tests, `make check` exit 0.
+Labels: 60 queries written before any results (`evals/retrieval_queries.yaml`, commit ef374ef);
+pooled top 20 of bm25/dense/hybrid (2,071 candidates), every narrative judged by Claude; 4 queries had
+no relevant complaint (q18, q36, q43, q45) and are skipped. Draft labels are NOT yet in the protected
+`evals/retrieval_labels.yaml` (needs owner unlock + 10-query spot-check).
+Owner decision: add a reranker; choose settings on dev queries (odd ids) only; gate on test (even ids).
+Dev sweep: depth 20 = 0.775, 30 = 0.739, 50 = 0.683 (base); bge-reranker-v2-m3 depth 20 = 0.762.
+Result (recall@10, test split, measured once): bm25 0.733, dense 0.720, hybrid 0.770, rerank 0.777.
+Gate D8 needs >= 0.80 -> FAIL. All splits: bm25 0.687, dense 0.719, hybrid 0.746, rerank 0.776.
 
 ## Phase 2 — Normalize + analytics (branch `phase-2-analytics`)
 Done (2026-10-22): `safetylens build` (complaints, complaint_docs, recalls, component_systems,
@@ -40,10 +54,9 @@ Owner decisions (2026-10-21):
 `recalls_sample.txt` (200 rows), built by `scripts/make_fixtures.py`, read by `tests/ingest/test_real_sample.py`.
 
 ## Next up
-1. Push `phase-2-analytics`, open PR, CI green, merge, `/learn` (`/phase-check 2` passed 2026-10-22)
-2. Phase 3: DuckDB fts BM25 index over `complaint_docs.narrative`, filtered by vehicle/component
-3. Phase 3: bge-small-en-v1.5 embeddings (batched, resumable) + hybrid reciprocal rank fusion, `safetylens search`
-4. Phase 3: draft 60 labeled queries for `evals/retrieval_labels.yaml` (owner verifies), `make eval-retrieval`
+1. Owner: spot-check 10 judged queries; unlock protected files so the labels can be committed
+2. Owner decision: how to close the D8 gap (0.777 vs 0.80) without touching labels or the threshold
+3. Then `/phase-check 3`, PR, `/learn`
 
 ## Non-blocking review notes
 - Phase 2 review: build rollback path and the `crosscheck` CLI command are untested
@@ -71,8 +84,8 @@ Owner decisions (2026-10-21):
 | complaints / complaint_docs (vehicle, dev slice) | 616,578 / 428,507 | 2026-10-22 |
 | recalls (vehicle, campaign x vehicle x component) | 109,237 | 2026-10-22 |
 | Crosscheck vs live API (10 vehicles) | 10/10, max diff 0.00% | 2026-10-22 |
-| Embedding throughput (docs/s) | – | – |
-| Hybrid recall@10 | – | – |
+| Embedding throughput (docs/s) | 769 (RTX 4060 Ti) | 2026-10-22 |
+| Hybrid recall@10 (test split) | 0.770 hybrid / 0.777 reranked | 2026-10-22 |
 | Golden pass rate | – | – |
 | p95 latency | – | – |
 | Mean cost / question | – | – |
@@ -83,7 +96,7 @@ Owner decisions (2026-10-21):
 | 0 Scaffold | done (owner confirmed /hooks) | make check exit 0; CI green | 2026-10-21 |
 | 1 Ingest | done | make check, make dq, pytest -m idempotent exit 0; fixture committed | 2026-10-21 |
 | 2 Analytics | done (/phase-check PASS, 0 blocking) | make check, make dq exit 0; crosscheck 10/10 exact | 2026-10-22 |
-| 3 Search | not started | – | – |
+| 3 Search | in progress; D8 not met | rerank recall@10 test 0.777 (< 0.80) | 2026-10-22 |
 | 4 Answers | not started | – | – |
 | 5 Web app | not started | – | – |
 | 6 Polish | not started | – | – |
