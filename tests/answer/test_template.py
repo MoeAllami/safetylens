@@ -8,7 +8,14 @@ from safetylens.answer.resolver import resolve
 from safetylens.answer.template import template_answer
 from safetylens.answer.validator import validate
 
-EVIDENCE = [Evidence(odino="11000001", received_date=None, components=[], narrative="x")]
+EVIDENCE = [
+    Evidence(
+        odino="11000001",
+        received_date=None,
+        components=["SERVICE BRAKES, HYDRAULIC", "12V BATTERY"],
+        narrative="x",
+    )
+]
 
 
 def _render(con: duckdb.DuckDBPyConnection, intent: str) -> tuple[str, list[str], set[str]]:
@@ -42,4 +49,8 @@ def test_citing_sentence_names_the_topic(
     answer_db: duckdb.DuckDBPyConnection,
 ) -> None:
     text, _, _ = _render(answer_db, "top_components")
-    assert "Example reports describing service brakes: [11000001]." in text
+    expected = (
+        "Example reports describing service brakes:\n"
+        "- [11000001] SERVICE BRAKES, HYDRAULIC; BATTERY"
+    )
+    assert expected in text

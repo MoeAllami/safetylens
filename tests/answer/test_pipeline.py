@@ -99,7 +99,7 @@ def test_fallback_template_uses_no_llm_text_and_is_validated(
     answer = engine(answer_db, llm).ask("q")
     assert answer.status == "fallback_template"
     assert "twelve" not in answer.text and "fires" not in answer.text
-    assert "Example reports describing service brakes:" in answer.text
+    assert "Example reports describing service brakes:\n- [" in answer.text
 
 
 def test_template_that_fails_validation_becomes_an_error(

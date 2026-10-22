@@ -68,6 +68,7 @@ class ItemResult(BaseModel):
     latency_s: float
     cost_usd: float
     verdicts: list[Verdict] = []
+    first_draft_errors: list[str] = []
 
 
 class GoldenReport(BaseModel):
@@ -241,6 +242,7 @@ def score_item(
         judged=judged,
         verdicts=verdicts,
         first_draft_ok=first_ok,
+        first_draft_errors=answer.first_draft_errors,
         latency_s=answer.latency_s,
         cost_usd=answer.cost_usd,
     )

@@ -48,6 +48,10 @@ def write_markdown(report: GoldenReport, report_dir: Path) -> Path:
         "|---|---|---|---|---|---|---|---|",
         *rows,
     ]
+    rejected = [i for i in report.items if i.first_draft_errors]
+    if rejected:
+        body += ["", "## First drafts the validator rejected", ""]
+        body += [f"- {i.id}: {'; '.join(i.first_draft_errors)}" for i in rejected]
     path.write_text("\n".join(body) + "\n", encoding="utf-8", newline="\n")
     return path
 

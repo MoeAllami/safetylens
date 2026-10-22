@@ -17,15 +17,23 @@ BUDGET = "The daily budget for answers has been reached. Please try again tomorr
 ERROR = "Sorry, I couldn't produce a verified answer to this question. Please try rephrasing it."
 
 
+def _no_digits(text: str) -> str:
+    # Every number in a template must come from SQL counts, so words with digits are dropped.
+    return " ".join(w for w in text.split() if not any(ch.isdigit() for ch in w))
+
+
 def _cite(evidence: list[Evidence], topic: str, n: int = 3) -> tuple[str, list[str]]:
-    """Name the problem in the citing sentence, so each cited report is cited for something."""
-    ids = [e.odino for e in evidence[:n]]
-    if not ids:
+    """One line per cited report, naming the components that report itself lists in the database,
+    so each citation is attached to a claim the record supports."""
+    chosen = evidence[:n]
+    if not chosen:
         return "", []
-    # Words with digits ("12-volt") are dropped: every number in a template must come from SQL.
-    words = [w for w in topic.split() if not any(ch.isdigit() for ch in w)]
-    about = f" describing {' '.join(words)}" if words else ""
-    return f"Example reports{about}: " + " ".join(f"[{i}]" for i in ids) + ".", ids
+    about = _no_digits(topic)
+    lines = [f"Example reports{' describing ' + about if about else ''}:"]
+    for e in chosen:
+        parts = "; ".join(p for p in (_no_digits(c) for c in e.components) if p)
+        lines.append(f"- [{e.odino}] {parts or 'see report'}")
+    return "\n".join(lines), [e.odino for e in chosen]
 
 
 def template_answer(

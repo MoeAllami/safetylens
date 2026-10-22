@@ -135,3 +135,15 @@ def test_judge_review_file_lists_every_verdict(
     assert "## g01 [11000001] NOT SUPPORTED" in text
     assert "- judge: different problem" in text
     assert "THE BRAKES FAILED" in text
+
+
+def test_report_lists_rejected_first_drafts(
+    answer_db: duckdb.DuckDBPyConnection, tmp_path: Path
+) -> None:
+    from test_pipeline import BAD
+
+    llm = FakeLLM().script("planner", plan()).script("writer", BAD, GOOD).script("judge", YES)
+    report = run_golden(engine(answer_db, llm), [_item()], today=dt.date(2026, 1, 2))
+    text = write_markdown(report, tmp_path).read_text(encoding="utf-8")
+    assert "## First drafts the validator rejected" in text
+    assert "- g01: numbers not in the SQL results: 999" in text
