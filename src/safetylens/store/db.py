@@ -30,6 +30,7 @@ def connect(path: Path, *, read_only: bool = False) -> duckdb.DuckDBPyConnection
     con = duckdb.connect(str(path), read_only=read_only)
     if not read_only:
         con.execute(load_sql("create_ingest_runs"))
+        con.execute(load_sql("migrate_ingest_runs_cp1252"))
     return con
 
 

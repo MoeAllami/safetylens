@@ -12,14 +12,20 @@
 ## Phase 1 — Ingest (branch `phase-1-ingest`, in progress)
 Done: layouts verified against docs/data/CMPL.txt and RCL.txt (recalls have 29 fields, no PII);
 download (ETag / Last-Modified, atomic), position-based parser (drops PII), Parquet, DuckDB
-`complaints_raw` / `recalls_raw` / `ingest_runs`, `safetylens ingest|dq`, 23 tests; `make check` exit 0;
-`pytest tests/ingest -m idempotent` exit 0.
+`complaints_raw` / `recalls_raw` / `ingest_runs`, `safetylens ingest|dq`, 25 tests.
+Real dev slice ingested (40 s). Gate commands all exit 0: `make check`, `make dq`,
+`pytest tests/ingest -m idempotent`; two real re-runs gave identical row counts and checksums.
+Owner decisions (2026-10-21):
+- D3 duplicate check is scoped to vehicle rows (prod_type V). One ODINO can name a vehicle plus a
+  tire/equipment/child seat under the same component (5,048 such pairs). 63 non-vehicle repeat groups are
+  reported as INFO. PLAN.md D3 and nhtsa-data gotcha 9 updated.
+- Files are UTF-8, not cp1252: decode UTF-8 per line with a cp1252 fallback (0 fallbacks in the dev slice;
+  cp1252 had produced mojibake on ~47k lines). Skill gotcha 5 updated.
 
 ## Next up
-1. Owner OKs the real download; run `make data-dev` then `make dq`; record row counts below
-2. If real data has duplicate (odino, component) or missing ODINO: stop and ask how to handle it
-3. Optional: 2,000-row real-sample fixture in tests/fixtures (owner must unlock protected files; PII blanked)
-4. `/phase-check 1`, open PR, then `/learn`
+1. `/phase-check 1`, push `phase-1-ingest`, open PR, CI green, then `/learn`
+2. Optional: 2,000-row real-sample fixture in tests/fixtures (owner must unlock protected files; PII blanked)
+3. Phase 2: normalize `complaints` / `complaint_docs`, `component_system`, model alias table, SQL templates
 
 ## Non-blocking review notes
 - Makefile `check` duplicates `lint`/`typecheck` recipes; could be `check: lint typecheck` + pytest
@@ -28,8 +34,9 @@ download (ETag / Last-Modified, atomic), position-based parser (drops PII), Parq
 ## Measured numbers
 | Metric | Value | Date |
 |---|---|---|
-| Complaint rows (dev slice) | – | – |
-| Distinct ODI (dev slice) | – | – |
+| Complaint rows (dev slice) | 625,137 | 2026-10-21 |
+| Distinct ODI (dev slice) | 430,187 | 2026-10-21 |
+| Recall rows / distinct campaigns (post-2010) | 246,253 / 15,332 | 2026-10-21 |
 | Embedding throughput (docs/s) | – | – |
 | Hybrid recall@10 | – | – |
 | Golden pass rate | – | – |

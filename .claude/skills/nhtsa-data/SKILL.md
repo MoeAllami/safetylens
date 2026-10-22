@@ -53,7 +53,11 @@ Positions (1-based) we keep:
    = text before the first `,` or `:`; keep the full string too. One complaint can list several.
 4. Model names vary (`F-150`, `F150`, `F-150 PICKUP`): canonical key = upper, strip spaces/hyphens,
    plus an alias table checked against the models API.
-5. Encoding: decode as cp1252 with `errors="replace"`; count replaced rows in `ingest_runs`.
+5. Encoding: current files are UTF-8 (verified 2026-10-21: every non-ASCII line in the 2025-2026
+   complaints and post-2010 recalls is valid UTF-8). Decode each line as UTF-8 and fall back to
+   cp1252 (`errors="replace"`) per line; count fallback and replaced rows in `ingest_runs`.
+9. One ODINO can name several products (vehicle V plus tire T / equipment E / child seat C) under
+   the same COMPDESC, so (odino, compdesc) is unique only among `prod_type = 'V'` rows.
 6. Since the 2021 cleanup, blank Y/N became `N` and blank numbers became 0 → treat MILES=0,
    VEH_SPEED=0 as unknown (NULL) in analytics.
 7. YEARTXT 9999 → NULL model year; exclude from year filters.

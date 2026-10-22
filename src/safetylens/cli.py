@@ -54,8 +54,8 @@ def ingest(
         st = r.stats
         typer.echo(
             f"{r.source.name}: {r.download_status}, read {st.rows_read}, loaded {st.rows_loaded}, "
-            f"rejected {st.rows_rejected}, undecodable-byte rows {st.rows_replaced}, "
-            f"bad values {st.bad_values}"
+            f"rejected {st.rows_rejected}, cp1252-fallback rows {st.rows_cp1252}, "
+            f"undecodable-byte rows {st.rows_replaced}, bad values {st.bad_values}"
         )
 
 

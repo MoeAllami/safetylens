@@ -49,16 +49,20 @@ def test_pii_never_reaches_parquet(tmp_path: Path) -> None:
         assert forbidden not in table.column_names
 
 
-def test_bad_bytes_are_counted_and_decoded(tmp_path: Path) -> None:
+def test_utf8_first_then_cp1252_fallback_per_line(tmp_path: Path) -> None:
     zip_path = tmp_path / "c.zip"
-    good = complaint_line("1", narrative="CAFE").encode("cp1252")
-    bad = complaint_line("2", narrative="XX").replace("XX", "A\x81B").encode("latin-1")
+    utf8 = complaint_line("1", narrative="DRIVER’S SIDE").encode("utf-8")
+    cp1252 = complaint_line("2", narrative="CAFÉ").encode("cp1252")  # \xc9 is invalid UTF-8
+    undefined = complaint_line("3", narrative="XX").replace("XX", "A\x81B").encode("latin-1")
     with zipfile.ZipFile(zip_path, "w") as zf:
-        zf.writestr("C.txt", good + b"\r\n" + bad + b"\r\n")
+        zf.writestr("C.txt", b"\xef\xbb\xbf" + b"\r\n".join([utf8, cp1252, undefined]) + b"\r\n")
     out = tmp_path / "c.parquet"
     stats = parse_zip_to_parquet(zip_path, out, COMPLAINT_COLUMNS, COMPLAINT_FIELD_COUNTS)
-    assert stats.rows_loaded == 2
-    assert stats.rows_replaced == 1
+    narratives = {r["odino"]: r["cdescr"] for r in pq.read_table(out).to_pylist()}
+    assert narratives["1"] == "DRIVER’S SIDE"  # not the mojibake "DRIVERâ€™S"
+    assert narratives["2"] == "CAFÉ"
+    assert "�" in narratives["3"]  # 0x81 is undefined even in cp1252
+    assert (stats.rows_loaded, stats.rows_cp1252, stats.rows_replaced) == (3, 2, 1)
 
 
 def test_wrong_field_count_is_rejected_and_counted(tmp_path: Path) -> None:

@@ -30,6 +30,7 @@ class CheckResult:
     name: str
     passed: bool
     detail: str
+    gate: bool = True  # False = reported for awareness only, never fails the run
 
 
 def _scalar(con: duckdb.DuckDBPyConnection, query: str) -> int:
@@ -53,6 +54,7 @@ def run_checks(con: duckdb.DuckDBPyConnection) -> list[CheckResult]:
     missing_odino = _scalar(con, "dq_missing_odino")
     duplicates = _scalar(con, "dq_duplicate_components")
     missing_campno = _scalar(con, "dq_missing_campno")
+    product_repeats = _scalar(con, "dq_product_repeats")
     return [
         CheckResult("complaints loaded", complaints.row_count > 0, f"{complaints.row_count} rows"),
         CheckResult(
@@ -62,7 +64,15 @@ def run_checks(con: duckdb.DuckDBPyConnection) -> list[CheckResult]:
         ),
         CheckResult("0 missing ODINO", missing_odino == 0, f"{missing_odino} missing"),
         CheckResult(
-            "0 duplicate (odino, component)", duplicates == 0, f"{duplicates} duplicated pairs"
+            "0 duplicate vehicle (odino, component)",
+            duplicates == 0,
+            f"{duplicates} duplicated pairs among prod_type='V'",
+        ),
+        CheckResult(
+            "repeated non-vehicle product rows",
+            True,
+            f"{product_repeats} groups (tires, equipment, child seats; not a gate)",
+            gate=False,
         ),
         CheckResult("recalls loaded", recalls.row_count > 0, f"{recalls.row_count} rows"),
         CheckResult("0 missing CAMPNO", missing_campno == 0, f"{missing_campno} missing"),
@@ -70,5 +80,11 @@ def run_checks(con: duckdb.DuckDBPyConnection) -> list[CheckResult]:
     ]
 
 
+def _label(result: CheckResult) -> str:
+    if not result.gate:
+        return "INFO"
+    return "PASS" if result.passed else "FAIL"
+
+
 def format_report(results: list[CheckResult]) -> str:
-    return "\n".join(f"[{'PASS' if r.passed else 'FAIL'}] {r.name}: {r.detail}" for r in results)
+    return "\n".join(f"[{_label(r)}] {r.name}: {r.detail}" for r in results)

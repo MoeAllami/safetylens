@@ -80,7 +80,32 @@ def test_dq_fails_on_missing_odino_and_duplicates(tmp_path: Path) -> None:
     _serve(tmp_path, [*GOOD, complaint_line(None), GOOD[0]])
     con = _ingest(tmp_path)
     failed = {r.name for r in run_checks(con) if not r.passed}
-    assert failed == {"0 missing ODINO", "0 duplicate (odino, component)"}
+    assert failed == {"0 missing ODINO", "0 duplicate vehicle (odino, component)"}
+
+
+@respx.mock
+@pytest.mark.usefixtures("small_slice")
+def test_vehicle_and_tire_in_one_complaint_is_not_a_duplicate(tmp_path: Path) -> None:
+    # Real NHTSA data: one ODINO names the vehicle (V) and the tire (T) under the same component.
+    vehicle = complaint_line("7", compdesc="TIRES")
+    tire = complaint_line("7", compdesc="TIRES", p46="T", p4="GOODYEAR", p5="G-METRIC", p6="9999")
+    _serve(tmp_path, [*GOOD, vehicle, tire, tire])
+    con = _ingest(tmp_path)
+    results = {r.name: r for r in run_checks(con)}
+    assert results["0 duplicate vehicle (odino, component)"].passed
+    info = results["repeated non-vehicle product rows"]
+    assert not info.gate
+    assert info.detail.startswith("1 groups")  # the doubled tire row is reported, not hidden
+
+
+def test_ingest_runs_migration_adds_column_to_old_table(tmp_path: Path) -> None:
+    path = tmp_path / "old.duckdb"
+    con = db.connect(path)
+    con.execute("ALTER TABLE ingest_runs DROP COLUMN rows_cp1252")  # simulate the v1 schema
+    con.close()
+    con = db.connect(path)
+    cols = [r[0] for r in con.execute("DESCRIBE ingest_runs").fetchall()]
+    assert "rows_cp1252" in cols
 
 
 @respx.mock

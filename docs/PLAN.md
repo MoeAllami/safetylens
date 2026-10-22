@@ -27,7 +27,7 @@ Example questions:
 |---|---|---|---|
 | D1 | One-command setup | `uv sync && make data-dev && make serve` on clean machine | `scripts/fresh_clone_check.sh` |
 | D2 | Idempotent ingest | 2nd run: identical row counts + checksums | `pytest tests/ingest -m idempotent` |
-| D3 | Data quality | 0 missing ODINO; 0 duplicate (odino, component); PII columns absent | `make dq` |
+| D3 | Data quality | 0 missing ODINO; 0 duplicate (odino, component) among vehicle rows (prod_type V; non-vehicle repeats reported, not gated); PII columns absent | `make dq` |
 | D4 | Counts match NHTSA | 10 vehicles within 2% of live complaintsByVehicle API (distinct ODI) | `make crosscheck` |
 | D5 | Numbers grounded | 100% | eval `numbers_grounded` |
 | D6 | Citations valid | 100% | eval `citations_valid` |

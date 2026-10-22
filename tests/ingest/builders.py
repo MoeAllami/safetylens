@@ -73,8 +73,8 @@ def recall_line(campno: str | None = "22V123000", n_fields: int = 29) -> str:
 
 
 def write_zip(path: Path, member: str, lines: Iterable[str], *, newline: str = "\r\n") -> Path:
-    """Write lines as cp1252 text inside a zip, like the real NHTSA files."""
-    payload = "".join(line + newline for line in lines).encode("cp1252", errors="replace")
+    """Write lines as UTF-8 text inside a zip, like the current NHTSA files."""
+    payload = "".join(line + newline for line in lines).encode("utf-8")
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.writestr(member, payload)
     return path

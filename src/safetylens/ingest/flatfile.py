@@ -1,11 +1,11 @@
 """Stream NHTSA tab-delimited flat files from a zip into Parquet.
 
-Why one generic parser: complaints and recalls share a format (TAB, no header, cp1252), and a
-layout can only ever read the columns it lists, so personal data is dropped in exactly one place.
+Why one generic parser: complaints and recalls share a format (TAB, no header), and a layout can
+only ever read the columns it lists, so personal data is dropped in exactly one place.
+Current files are UTF-8; older ones may be cp1252, so each line falls back to cp1252 on its own.
 """
 
 import datetime as dt
-import io
 import zipfile
 from collections.abc import Collection, Iterator, Sequence
 from dataclasses import dataclass
@@ -17,7 +17,9 @@ import pyarrow.parquet as pq
 
 ColumnKind = Literal["str", "int", "date"]
 
+PARSER_VERSION = 2  # bump whenever parsing changes, so cached Parquet is rebuilt
 BATCH_ROWS = 50_000
+UTF8_BOM = b"\xef\xbb\xbf"
 REPLACEMENT_CHAR = "�"
 _ARROW_TYPES: dict[ColumnKind, pa.DataType] = {
     "str": pa.string(),
@@ -40,6 +42,7 @@ class ParseStats:
     rows_rejected: int = 0  # wrong field count
     rows_replaced: int = 0  # rows that contained undecodable bytes
     bad_values: int = 0  # unparseable numbers or dates, stored as NULL
+    rows_cp1252: int = 0  # rows that were not valid UTF-8 and were decoded as cp1252
 
 
 def _convert(raw: str | None, kind: ColumnKind, stats: ParseStats) -> object:
@@ -61,11 +64,17 @@ def _convert(raw: str | None, kind: ColumnKind, stats: ParseStats) -> object:
         return None
 
 
-def _iter_lines(zf: zipfile.ZipFile, member: str) -> Iterator[str]:
+def _iter_lines(zf: zipfile.ZipFile, member: str, stats: ParseStats) -> Iterator[str]:
     with zf.open(member) as raw:
-        # newline="\n" splits only on LF, so a stray CR inside a field never starts a new record.
-        text = io.TextIOWrapper(raw, encoding="cp1252", errors="replace", newline="\n")
-        yield from text
+        # Binary iteration splits only on LF, so a stray CR inside a field never starts a record.
+        for index, line in enumerate(raw):
+            if index == 0:
+                line = line.removeprefix(UTF8_BOM)
+            try:
+                yield line.decode("utf-8")
+            except UnicodeDecodeError:
+                stats.rows_cp1252 += 1
+                yield line.decode("cp1252", errors="replace")
 
 
 def _flush(writer: pq.ParquetWriter, schema: pa.Schema, buffers: list[list[object]]) -> None:
@@ -93,7 +102,7 @@ def parse_zip_to_parquet(
             pq.ParquetWriter(tmp, schema, compression="zstd") as writer,
         ):
             for member in sorted(n for n in zf.namelist() if n.lower().endswith(".txt")):
-                for line in _iter_lines(zf, member):
+                for line in _iter_lines(zf, member, stats):
                     record = line.rstrip("\r\n")
                     if not record.strip():
                         continue

@@ -18,7 +18,7 @@ import structlog
 
 from safetylens.config import Settings
 from safetylens.ingest.download import download
-from safetylens.ingest.flatfile import Column, ParseStats, parse_zip_to_parquet
+from safetylens.ingest.flatfile import PARSER_VERSION, Column, ParseStats, parse_zip_to_parquet
 from safetylens.ingest.layouts import (
     COMPLAINT_COLUMNS,
     COMPLAINT_FIELD_COUNTS,
@@ -49,7 +49,9 @@ def _layout(kind: Kind) -> tuple[tuple[Column, ...], frozenset[int]]:
 
 
 def _layout_id(columns: tuple[Column, ...], counts: frozenset[int]) -> str:
-    return hashlib.sha256(repr((columns, sorted(counts))).encode()).hexdigest()[:16]
+    # PARSER_VERSION is part of the id so a parser change forces a reparse of unchanged zips.
+    spec = (PARSER_VERSION, columns, sorted(counts))
+    return hashlib.sha256(repr(spec).encode()).hexdigest()[:16]
 
 
 def _parse_if_needed(source: Source, zip_path: Path, sha256: str, parquet_dir: Path) -> ParseStats:
@@ -102,6 +104,7 @@ def run_ingest(
                 r.stats.rows_rejected,
                 r.stats.rows_replaced,
                 r.stats.bad_values,
+                r.stats.rows_cp1252,
             ],
         )
     return reports, con
