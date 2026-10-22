@@ -50,6 +50,10 @@ D7 98%, D9 90%, refusals 6/6, first draft 53%, p50 7.0 s / p95 13.9 s, $0.0155/q
 2. digit+unit tokens are counted in prose but ignored in SQL values, so real components like
    "ELECTRICAL SYSTEM:12V/24V/48V BATTERY:CABLES" make both the writer and the template fail ("error")
    -> allow digits from SQL values with or without a unit; template test with such a component
+Fixed (commit 3cc5bdf, 140 tests): both, plus compare evidence interleaved across vehicles. `make eval`:
+D5 100%, D6 100%, D7 99%, D9 92% (37/40), refusals 6/6, first draft 68%, 2 fallbacks,
+p50 6.4 s / p95 10.3 s, $0.0140/question (+ $0.40 judge) -> PASS. Failures: g04 (planner picks examples),
+g32, g34 (one unsupported citation each).
 
 ## Phase 3 — Search (branch `phase-3-search`; D8 miss accepted by owner)
 Done (2026-10-22): DuckDB fts BM25 over `complaint_docs`; bge-small-en-v1.5 embeddings on GPU
@@ -99,8 +103,7 @@ Owner decisions (2026-10-21):
 `recalls_sample.txt` (200 rows), built by `scripts/make_fixtures.py`, read by `tests/ingest/test_real_sample.py`.
 
 ## Next up
-1. Fix the 2 new blocking items with tests; re-run `make eval`; owner re-runs `/phase-check 4`
-   (owner: spot-check 10 verdicts in data/eval/judge-2026-10-22.md meanwhile)
+1. Owner: spot-check 10 verdicts in data/eval/judge-2026-10-22.md; re-run `/phase-check 4`
 3. Then push, PR, `/learn`
 3. Phase 5: FastAPI + HTMX UI (`/`, `/ask`, record pages), Altair charts, disclaimer; cut p95 below 8 s
 
@@ -139,9 +142,9 @@ Owner decisions (2026-10-21):
 | Crosscheck vs live API (10 vehicles) | 10/10, max diff 0.00% | 2026-10-22 |
 | Embedding throughput (docs/s) | 769 (RTX 4060 Ti) | 2026-10-22 |
 | Hybrid recall@10 (test split) | 0.770 hybrid / 0.777 reranked | 2026-10-22 |
-| Golden pass rate | 90% (36/40), refusals 6/6 (strict validator) | 2026-10-22 |
-| p95 latency | 13.3 s (p50 6.9 s) | 2026-10-22 |
-| Mean cost / question | $0.0160 (+ judge $0.38 per eval run) | 2026-10-22 |
+| Golden pass rate | 92% (37/40), refusals 6/6 (strict validator) | 2026-10-22 |
+| p95 latency | 10.3 s (p50 6.4 s) | 2026-10-22 |
+| Mean cost / question | $0.0140 (+ judge $0.40 per eval run) | 2026-10-22 |
 
 ## Phase log
 | Phase | Status | Gate result | Date |
@@ -150,7 +153,7 @@ Owner decisions (2026-10-21):
 | 1 Ingest | done | make check, make dq, pytest -m idempotent exit 0; fixture committed | 2026-10-21 |
 | 2 Analytics | done (/phase-check PASS, 0 blocking) | make check, make dq exit 0; crosscheck 10/10 exact | 2026-10-22 |
 | 3 Search | done with D8 miss (owner accepted) | rerank recall@10 test 0.777 (< 0.80) | 2026-10-22 |
-| 4 Answers | phase-check FAIL (2 new blocking items) | make eval PASS: D5 100%, D6 100%, D7 98%, D9 90%, 6/6 | 2026-10-22 |
+| 4 Answers | blocking items fixed; phase-check re-run pending | make eval PASS: D5 100%, D6 100%, D7 99%, D9 92%, 6/6 | 2026-10-22 |
 | 5 Web app | not started | – | – |
 | 6 Polish | not started | – | – |
 
