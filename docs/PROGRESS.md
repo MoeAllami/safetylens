@@ -21,15 +21,29 @@ Owner decisions (2026-10-21):
   reported as INFO. PLAN.md D3 and nhtsa-data gotcha 9 updated.
 - Files are UTF-8, not cp1252: decode UTF-8 per line with a cp1252 fallback (0 fallbacks in the dev slice;
   cp1252 had produced mojibake on ~47k lines). Skill gotcha 5 updated.
+- No more per-phase `TODO(you)` stubs: owner removed the rule from CLAUDE.md and asked for the Phase 0
+  stub (`is_valid_odino`) to be implemented (commit ffcd220).
+
+`/phase-check 1` (2026-10-21): all three gate commands exit 0; reviewer's blocking fixture item is now done:
+`tests/fixtures/complaints_sample.txt` (2,000 rows, 1,380 complaints, PII fields blanked) and
+`recalls_sample.txt` (200 rows), built by `scripts/make_fixtures.py`, read by `tests/ingest/test_real_sample.py`.
 
 ## Next up
-1. `/phase-check 1`, push `phase-1-ingest`, open PR, CI green, then `/learn`
-2. Optional: 2,000-row real-sample fixture in tests/fixtures (owner must unlock protected files; PII blanked)
-3. Phase 2: normalize `complaints` / `complaint_docs`, `component_system`, model alias table, SQL templates
+1. Owner removes the protected-files unlock; push `phase-1-ingest`, open PR, CI green, `/learn`
+2. Phase 2: `complaints` (one row per odino x component, prod_type V, MILES/VEH_SPEED 0 -> NULL,
+   YEARTXT 9999 -> NULL) and `complaint_docs` (one row per odino)
+3. Phase 2: `component_system` + model alias table (rapidfuzz, checked against the models API)
+4. Phase 2: SQL templates (top components, monthly trend, severity, recalls by vehicle) + `make crosscheck`
 
 ## Non-blocking review notes
 - Makefile `check` duplicates `lint`/`typecheck` recipes; could be `check: lint typecheck` + pytest
 - pre-commit ruff rev v0.8.6 is older than pinned ruff>=0.17.1; bump the rev to avoid format drift
+- Phase 1 review: parquet stats sidecar is not written atomically and bad JSON is not a cache miss (pipeline.py)
+- Phase 1 review: cache-invalidation branch untested; idempotency test never exercises the 304 path
+- Phase 1 review: on 304 the zip on disk is not re-checked against the stored sha/size (download.py)
+- Phase 1 review: loads + ingest_runs are not one transaction; connection leaks on error (pipeline.py, cli.py)
+- Phase 1 review: use `con.begin()/commit()/rollback()`; pass REQUIRED_TABLES as a parameter to dq_tables_present.sql
+- Phase 1 review: report rows_rejected / rows_cp1252 from the latest ingest_runs in `make dq` (INFO or threshold)
 
 ## Measured numbers
 | Metric | Value | Date |
@@ -46,8 +60,8 @@ Owner decisions (2026-10-21):
 ## Phase log
 | Phase | Status | Gate result | Date |
 |---|---|---|---|
-| 0 Scaffold | done pending /hooks check | make check exit 0; CI green | 2026-10-21 |
-| 1 Ingest | in progress | – | – |
+| 0 Scaffold | done (owner confirmed /hooks) | make check exit 0; CI green | 2026-10-21 |
+| 1 Ingest | done | make check, make dq, pytest -m idempotent exit 0; fixture committed | 2026-10-21 |
 | 2 Analytics | not started | – | – |
 | 3 Search | not started | – | – |
 | 4 Answers | not started | – | – |
