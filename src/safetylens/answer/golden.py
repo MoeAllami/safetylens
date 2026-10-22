@@ -142,6 +142,8 @@ def check_facts(item: GoldenItem, answer: Answer) -> list[str]:
         else:
             failures.append(f"unknown expected fact {key!r}")
             continue
+        if isinstance(want, list) and isinstance(got, list):
+            got, want = sorted(got), sorted(want)  # compare items: vehicle order doesn't matter
         if got != want:
             failures.append(f"{key}: want {want}, got {got}")
     return failures
