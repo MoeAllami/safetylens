@@ -39,13 +39,13 @@ check:
 	uv run pytest --cov --cov-fail-under=80
 
 data-dev:
-	$(call stub,data-dev,1)
+	uv run safetylens ingest --slice dev
 
 data-full:
-	$(call stub,data-full,1)
+	uv run safetylens ingest --slice full
 
 dq:
-	$(call stub,dq,1)
+	uv run safetylens dq
 
 crosscheck:
 	$(call stub,crosscheck,2)

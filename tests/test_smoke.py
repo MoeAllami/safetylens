@@ -1,4 +1,3 @@
-import pytest
 from typer.testing import CliRunner
 
 from safetylens import __version__
@@ -20,9 +19,9 @@ def test_help_lists_version_command() -> None:
     assert "version" in result.output
 
 
-@pytest.mark.xfail(strict=True, raises=NotImplementedError, reason="TODO(you): implement")
 def test_is_valid_odino() -> None:
     assert is_valid_odino("11500123")
     assert not is_valid_odino("")
     assert not is_valid_odino(" 123")
     assert not is_valid_odino("12a")
+    assert not is_valid_odino("1²3")

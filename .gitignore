@@ -1,4 +1,4 @@
-data/
+/data/
 .env
 .venv/
 __pycache__/
@@ -12,3 +12,4 @@ dist/
 .claude/.last_green
 .claude/.unlock-protected
 .claude/settings.local.json
+.vscode/
