@@ -16,6 +16,7 @@ from safetylens.dq import run_checks
 from safetylens.ingest import pipeline
 from safetylens.ingest.sources import Source
 from safetylens.store import db
+from safetylens.store.build import build
 
 FIXTURES = Path(__file__).parents[1] / "fixtures"
 C = Source("C_SAMPLE", "complaints", "https://example.test/C_SAMPLE.zip")
@@ -63,5 +64,6 @@ def test_real_sample_ingests_cleanly_and_passes_dq(
         complaints.distinct_keys == 1380
     )  # rows are per component: never count rows as complaints
 
+    build(con)
     failed = [r for r in run_checks(con) if not r.passed]
     assert failed == []

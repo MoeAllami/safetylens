@@ -10,6 +10,7 @@ from safetylens.dq import run_checks
 from safetylens.ingest import pipeline
 from safetylens.ingest.sources import Source
 from safetylens.store import db
+from safetylens.store.build import build
 
 COMPLAINT_SRC = Source("C_TEST", "complaints", "https://example.test/C_TEST.zip")
 RECALL_SRC = Source("R_TEST", "recalls", "https://example.test/R_TEST.zip")
@@ -34,6 +35,7 @@ def _settings(tmp_path: Path) -> Settings:
 def _ingest(tmp_path: Path):  # type: ignore[no-untyped-def]
     with httpx.Client() as client:
         _, con = pipeline.run_ingest(_settings(tmp_path), "dev", client)
+    build(con)
     return con
 
 
@@ -80,7 +82,11 @@ def test_dq_fails_on_missing_odino_and_duplicates(tmp_path: Path) -> None:
     _serve(tmp_path, [*GOOD, complaint_line(None), GOOD[0]])
     con = _ingest(tmp_path)
     failed = {r.name for r in run_checks(con) if not r.passed}
-    assert failed == {"0 missing ODINO", "0 duplicate vehicle (odino, component)"}
+    assert failed == {
+        "0 missing ODINO",
+        "0 duplicate vehicle (odino, component)",
+        "complaints: one row per (odino, component)",  # the duplicate also reaches complaints
+    }
 
 
 @respx.mock

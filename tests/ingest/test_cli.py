@@ -36,6 +36,10 @@ def test_ingest_then_dq_pass_end_to_end(tmp_path: Path, monkeypatch: pytest.Monk
     assert ingest.exit_code == 0, ingest.output
     assert "complaints_raw: 2 rows, 2 distinct keys" in ingest.output
 
+    built = runner.invoke(app, ["build"])
+    assert built.exit_code == 0, built.output
+    assert "complaint_docs: 2 rows" in built.output
+
     dq = runner.invoke(app, ["dq"])
     assert dq.exit_code == 0, dq.output
     assert "[FAIL]" not in dq.output
