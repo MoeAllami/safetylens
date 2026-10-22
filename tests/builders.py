@@ -91,7 +91,10 @@ def recall_line(campno: str | None = "22V123000", n_fields: int = 29, **override
 
 
 def make_db(
-    tmp_path: Path, complaint_lines: Iterable[str], recall_lines: Iterable[str]
+    tmp_path: Path,
+    complaint_lines: Iterable[str],
+    recall_lines: Iterable[str],
+    db_path: Path | None = None,
 ) -> duckdb.DuckDBPyConnection:
     """Raw + normalized tables in a temp DuckDB, through the real parser, loader and build."""
     c_zip = write_zip(tmp_path / "c.zip", "C.txt", complaint_lines)
@@ -99,7 +102,7 @@ def make_db(
     c_pq, r_pq = tmp_path / "c.parquet", tmp_path / "r.parquet"
     parse_zip_to_parquet(c_zip, c_pq, COMPLAINT_COLUMNS, COMPLAINT_FIELD_COUNTS)
     parse_zip_to_parquet(r_zip, r_pq, RECALL_COLUMNS, RECALL_FIELD_COUNTS)
-    con = db.connect(tmp_path / "test.duckdb")
+    con = db.connect(db_path or tmp_path / "test.duckdb")
     db.load_raw_table(con, "complaints", [c_pq])
     db.load_raw_table(con, "recalls", [r_pq])
     build(con)
@@ -112,3 +115,24 @@ def write_zip(path: Path, member: str, lines: Iterable[str], *, newline: str = "
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.writestr(member, payload)
     return path
+
+
+SEARCH_NARRATIVES = {
+    "1": "THE BRAKES FAILED AND THE PEDAL WENT TO THE FLOOR",
+    "2": "BRAKING DISTANCE INCREASED, BRAKE PEDAL FEELS SOFT",
+    "3": "TRANSMISSION SLAMS INTO GEAR WHEN SHIFTING",
+    "4": "THE RADIO SCREEN WENT BLACK WHILE DRIVING",
+}
+
+
+def make_search_db(tmp_path: Path, db_path: Path | None = None) -> duckdb.DuckDBPyConnection:
+    """Four 2022 F-150 complaints plus a same-worded Camry, indexed with the fake embedder."""
+    from safetylens.search.embed import HashingEmbedder
+    from safetylens.search.index import build_fts, embed_docs
+
+    lines = [complaint_line(odino, narrative=text) for odino, text in SEARCH_NARRATIVES.items()]
+    lines.append(complaint_line("5", narrative="BRAKES FAILED COMPLETELY", p4="TOYOTA", p5="CAMRY"))
+    con = make_db(tmp_path, lines, [recall_line()], db_path=db_path)
+    build_fts(con)
+    embed_docs(con, HashingEmbedder())
+    return con
