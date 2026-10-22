@@ -25,8 +25,6 @@ Current phase and open items: `docs/PROGRESS.md` (read it at the start of every 
 
 ## Learning mode (the owner is here to learn)
 - Before introducing a new concept or library, explain it in at most 3 sentences.
-- In each phase, leave 1–2 small, self-contained functions as stubs marked `# TODO(you):`
-  with a failing test and a one-line hint. Do not implement them; list them in PROGRESS.md.
 - After a phase gate passes, suggest running `/learn`.
 - Prefer clear code over clever code; add a short docstring saying *why*, not *what*.
 

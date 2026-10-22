@@ -7,15 +7,17 @@
 - uv package (Python 3.12), typer + dev deps (ruff, mypy, pytest, pytest-cov, pre-commit, respx)
 - Makefile (stubs for later phases), pytest markers, ruff/mypy/coverage config
 - .gitignore, .gitattributes, .env.example, pre-commit, GitHub Actions CI
-- `make check` exit 0 locally (2 passed, 1 xfailed, coverage 100%)
+- `make check` exit 0 (2 passed, 1 xfailed, coverage 100%); CI green on PR #1 (merged)
 
-## Next up
-1. Commit, push `phase-0-scaffold`, open PR; confirm CI green
-2. Confirm `/hooks` lists the project hooks; run `/phase-check 0`
-3. Implement `is_valid_odino`, then remove its xfail marker; then run `/learn`
+## Next up (Phase 1 — Ingest, branch `phase-1-ingest`; start in plan mode)
+1. Confirm `/hooks` lists the project hooks (last open Phase 0 gate item)
+2. Download step: NHTSA flat files with checksum + If-Modified-Since (load `nhtsa-data` skill first)
+3. Parse by position (49 or 51 fields), drop PII columns at ingest, write Parquet
+Then: DuckDB `complaints_raw`, `recalls_raw`, `ingest_runs`; 2,000-row fixture (ask owner first); `make dq`.
 
-## TODO(you) stubs open
-- `src/safetylens/validate.py::is_valid_odino` — test is `xfail(strict=True)` in tests/test_smoke.py; remove the marker once it passes
+## Non-blocking review notes
+- Makefile `check` duplicates `lint`/`typecheck` recipes; could be `check: lint typecheck` + pytest
+- pre-commit ruff rev v0.8.6 is older than pinned ruff>=0.17.1; bump the rev to avoid format drift
 
 ## Measured numbers
 | Metric | Value | Date |
@@ -31,7 +33,7 @@
 ## Phase log
 | Phase | Status | Gate result | Date |
 |---|---|---|---|
-| 0 Scaffold | in progress | – | – |
+| 0 Scaffold | done pending /hooks check | make check exit 0; CI green | 2026-10-21 |
 | 1 Ingest | not started | – | – |
 | 2 Analytics | not started | – | – |
 | 3 Search | not started | – | – |
