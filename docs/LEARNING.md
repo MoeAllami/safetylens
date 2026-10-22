@@ -36,6 +36,17 @@ One entry per phase, written in your own words (the `/learn` skill helps).
   - SQL injection and parameters: https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html
   - NHTSA datasets and APIs: https://www.nhtsa.gov/nhtsa-datasets-and-apis
 
+### 2026-10-22 — Phase 3
+- **Concepts:** lexical vs semantic retrieval (`store/queries/search_bm25.sql`, `search/search.py::bm25/dense`, `search/embed.py::SentenceTransformerEmbedder`); two-stage retrieval with reciprocal rank fusion and a cross-encoder rerank (`search/search.py::rrf/_rerank`, `search/rerank.py`); honest evaluation with pooled labels, capped recall@10 and a dev/test split (`search/evaluate.py::recall_at_k`, `RetrievalQuery.split`, `RetrievalReport.passed`).
+- **Q&A:**
+  - *q02: BM25 1.0, dense 0.0, why, and what if dense-only?* One complaint says the wheel "came totally out of the column"; BM25 rewards that rare word combination, the embedding is crowded out by hundreds of similar "steering locked / control arm detached" complaints. Dense-only would lose exact-detail queries. Caught by per-method columns in `make eval-retrieval`, not by unit tests (the fake embedder behaves lexically). Lexical and semantic fail on different queries; combine and measure both.
+  - *Why did rerank depth 50 (0.683) score below 20 (0.775) on dev?* More candidates = more chances to promote plausible-but-wrong complaints, and rerank drops the fusion's agreement signal; also candidates beyond pool depth 20 were never judged and count as not relevant. The "unjudged in top 10" column exposes the second effect (not recorded for the depth-50 sweep). An eval can only reward what was judged.
+  - *Why not tune on all 56 queries?* Picking the best of many noisy scores (one query = ~3.6 points of a 28-query mean) overfits and reports an optimistic number. Test stayed held out (dev 0.775 vs test 0.777). `passed()` gates on test, but sweeps could still peek at test (reviewer note: add `--split dev`). The number you tune on can't also be the number you report.
+- **Read next:**
+  - BM25: https://en.wikipedia.org/wiki/Okapi_BM25
+  - Reciprocal rank fusion (Cormack et al., 2009): https://plg.uwaterloo.ca/~gvcormac/cormacksigir09-rrf.pdf
+  - Train / validation / test splits: https://developers.google.com/machine-learning/crash-course/overfitting/dividing-datasets
+
 ## Template
 ### YYYY-MM-DD — Phase N
 - **Concepts:**

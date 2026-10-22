@@ -59,7 +59,7 @@ eval-retrieval:
 	uv run safetylens eval-retrieval
 
 eval:
-	$(call stub,eval,4)
+	uv run safetylens eval
 
 e2e:
 	$(call stub,e2e,5)

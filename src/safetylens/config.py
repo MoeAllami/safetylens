@@ -16,7 +16,12 @@ class Settings(BaseSettings):
     data_dir: Path = Path("data")
     planner_model: str = ""
     writer_model: str = ""
-    daily_budget_usd: float = 0.0
+    judge_model: str = ""
+    planner_effort: str = "low"
+    writer_effort: str = "medium"
+    judge_effort: str = "low"
+    daily_budget_usd: float = 0.0  # cap for `safetylens ask`
+    eval_budget_usd: float = 0.0  # separate cap for `safetylens eval`
     anthropic_api_key: SecretStr | None = Field(default=None, validation_alias="ANTHROPIC_API_KEY")
     embed_model: str = "BAAI/bge-small-en-v1.5"
     embed_batch_size: int = 128
