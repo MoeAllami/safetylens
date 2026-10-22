@@ -69,3 +69,4 @@ def test_eval_runs_items_writes_report_and_gates(fake_runtime: FakeLLM, tmp_path
     assert "golden_pass           100%  (target >= 85%) of 2" in result.output
     assert "refusals              1/1" in result.output
     assert len(list(reports.glob("answers-*.md"))) == 1
+    assert "judge verdicts for spot-checking (git-ignored)" in result.output

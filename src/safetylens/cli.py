@@ -200,8 +200,10 @@ def eval_answers(
     with db.connect(settings.data_dir / DB_NAME, read_only=True) as con:
         report = golden_eval.run_golden(runtime.build_engine(settings, con, llm), items)
         path = golden_eval.write_markdown(report, report_dir)
+        review = golden_eval.write_judge_review(report, settings.data_dir / "eval")
     typer.echo(golden_eval.format_summary(report))
     typer.echo(f"report: {path}")
+    typer.echo(f"judge verdicts for spot-checking (git-ignored): {review}")
     if not report.passed():
         raise typer.Exit(1)
 

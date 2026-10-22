@@ -12,6 +12,7 @@ from safetylens.answer.golden import (
     check_facts,
     load_golden,
     run_golden,
+    write_judge_review,
     write_markdown,
 )
 from safetylens.answer.llm import FakeLLM
@@ -45,6 +46,9 @@ def test_answerable_item_passes_and_is_judged(answer_db: duckdb.DuckDBPyConnecti
         1,
         1,
     )
+    (verdict,) = result.verdicts
+    assert (verdict.odino, verdict.supported, verdict.reason) == ("11000001", True, "same problem")
+    assert verdict.claim.endswith("owners report brake failure [11000001].")
     judge_prompt = llm.calls[-1][2]
     assert "brake failure" in judge_prompt and "THE BRAKES FAILED" in judge_prompt
 
@@ -121,3 +125,14 @@ def test_load_golden(tmp_path: Path) -> None:
     path = tmp_path / "g.yaml"
     path.write_text("items:\n  - {id: g01, question: q, intent: recalls}\n", encoding="utf-8")
     assert load_golden(path)[0].intent == "recalls"
+
+
+def test_judge_review_file_lists_every_verdict(
+    answer_db: duckdb.DuckDBPyConnection, tmp_path: Path
+) -> None:
+    llm = FakeLLM().script("planner", plan()).script("writer", GOOD).script("judge", NO)
+    report = run_golden(engine(answer_db, llm), [_item()], today=dt.date(2026, 1, 2))
+    text = write_judge_review(report, tmp_path / "eval").read_text(encoding="utf-8")
+    assert "## g01 [11000001] NOT SUPPORTED" in text
+    assert "- judge: different problem" in text
+    assert "THE BRAKES FAILED" in text

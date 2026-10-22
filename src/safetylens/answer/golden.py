@@ -31,6 +31,7 @@ TARGETS = {
     "golden_pass": 0.85,
 }
 JUDGE_CHARS = 1500
+REVIEW_CHARS = 400
 
 
 class GoldenItem(BaseModel):
@@ -40,6 +41,17 @@ class GoldenItem(BaseModel):
     expected_facts: dict[str, Any] = {}
     must_cite: bool = True
     notes: str = ""
+
+
+class Verdict(BaseModel):
+    """One judged citation, kept for the owner's spot-check (written only to git-ignored data/)."""
+
+    item_id: str
+    odino: str
+    claim: str
+    supported: bool
+    reason: str
+    narrative_excerpt: str
 
 
 class ItemResult(BaseModel):
@@ -55,6 +67,7 @@ class ItemResult(BaseModel):
     first_draft_ok: bool | None
     latency_s: float
     cost_usd: float
+    verdicts: list[Verdict] = []
 
 
 class GoldenReport(BaseModel):
@@ -161,17 +174,24 @@ def _claims(text: str) -> dict[str, str]:
     return claims
 
 
-def judge_citations(llm: LLM, answer: Answer) -> tuple[int, int]:
+def judge_citations(llm: LLM, answer: Answer, item_id: str = "") -> list[Verdict]:
     narratives = {e.odino: e.narrative for e in answer.evidence}
-    supported = judged = 0
+    verdicts: list[Verdict] = []
     for cid, claim in _claims(answer.text).items():
-        user = (
-            f"Claim: {claim}\n\nCited complaint [{cid}]:\n{narratives.get(cid, '')[:JUDGE_CHARS]}"
-        )
+        narrative = narratives.get(cid, "")[:JUDGE_CHARS]
+        user = f"Claim: {claim}\n\nCited complaint [{cid}]:\n{narrative}"
         verdict = llm.structured("judge", prompts.JUDGE, user, JudgeVerdict, 600)
-        judged += 1
-        supported += int(verdict.supported)
-    return supported, judged
+        verdicts.append(
+            Verdict(
+                item_id=item_id,
+                odino=cid,
+                claim=claim,
+                supported=verdict.supported,
+                reason=verdict.reason,
+                narrative_excerpt=narrative[:REVIEW_CHARS],
+            )
+        )
+    return verdicts
 
 
 def score_item(
@@ -180,6 +200,7 @@ def score_item(
     failures = check_facts(item, answer)
     grounded = valid = first_ok = None
     supported = judged = 0
+    verdicts: list[Verdict] = []
     if item.intent == "out_of_scope":
         if answer.status != "refused" or answer.citations:
             failures.append(f"expected a refusal with no citations, got {answer.status}")
@@ -202,7 +223,8 @@ def score_item(
         failures += errors
         if item.must_cite and not answer.citations:
             failures.append("no citations")
-        supported, judged = judge_citations(llm, answer)
+        verdicts = judge_citations(llm, answer, item.id)
+        judged, supported = len(verdicts), sum(v.supported for v in verdicts)
         if judged and supported < judged:
             failures.append(f"citations supportive {supported}/{judged}")
     elif "status" not in item.expected_facts:
@@ -217,6 +239,7 @@ def score_item(
         citations_valid=valid,
         supported=supported,
         judged=judged,
+        verdicts=verdicts,
         first_draft_ok=first_ok,
         latency_s=answer.latency_s,
         cost_usd=answer.cost_usd,
@@ -274,5 +297,27 @@ def write_markdown(report: GoldenReport, report_dir: Path) -> Path:
         "|---|---|---|---|---|---|---|---|",
         *rows,
     ]
+    path.write_text("\n".join(body) + "\n", encoding="utf-8", newline="\n")
+    return path
+
+
+def write_judge_review(report: GoldenReport, review_dir: Path) -> Path:
+    """Every judge verdict with its sentence and a narrative excerpt, for the owner's spot-check.
+
+    Contains narratives, so it is written under data/ (git-ignored), never into evals/reports/.
+    """
+    review_dir.mkdir(parents=True, exist_ok=True)
+    path = review_dir / f"judge-{report.date.isoformat()}.md"
+    body = [f"# Judge verdicts {report.date.isoformat()}", ""]
+    for item in report.items:
+        for v in item.verdicts:
+            mark = "SUPPORTED" if v.supported else "NOT SUPPORTED"
+            body += [
+                f"## {v.item_id} [{v.odino}] {mark}",
+                f"- claim: {v.claim}",
+                f"- judge: {v.reason}",
+                f"- narrative: {v.narrative_excerpt}",
+                "",
+            ]
     path.write_text("\n".join(body) + "\n", encoding="utf-8", newline="\n")
     return path
