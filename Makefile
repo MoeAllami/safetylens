@@ -1,0 +1,66 @@
+SHELL := bash
+.DEFAULT_GOAL := help
+
+# Targets for later phases fail loudly until built, so a green run never hides a missing feature.
+define stub
+	@echo "not implemented: $(1) (Phase $(2))" >&2; exit 1
+endef
+
+.PHONY: help install lint fmt typecheck test test-fast check \
+	data-dev data-full dq crosscheck eval-retrieval eval e2e serve acceptance
+
+help:
+	@grep -E '^[a-z-]+:' Makefile | cut -d: -f1 | sort
+
+install:
+	uv sync
+
+lint:
+	uv run ruff check .
+	uv run ruff format --check .
+
+fmt:
+	uv run ruff check --fix .
+	uv run ruff format .
+
+typecheck:
+	uv run mypy --strict src
+
+test:
+	uv run pytest
+
+test-fast:
+	uv run pytest -m "not slow and not network" -x -q
+
+check:
+	uv run ruff check .
+	uv run ruff format --check .
+	uv run mypy --strict src
+	uv run pytest --cov --cov-fail-under=80
+
+data-dev:
+	$(call stub,data-dev,1)
+
+data-full:
+	$(call stub,data-full,1)
+
+dq:
+	$(call stub,dq,1)
+
+crosscheck:
+	$(call stub,crosscheck,2)
+
+eval-retrieval:
+	$(call stub,eval-retrieval,3)
+
+eval:
+	$(call stub,eval,4)
+
+e2e:
+	$(call stub,e2e,5)
+
+serve:
+	$(call stub,serve,5)
+
+acceptance:
+	$(call stub,acceptance,6)
