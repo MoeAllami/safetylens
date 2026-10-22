@@ -33,6 +33,11 @@ D5 100%, D6 100%, D7 96%, D9 85% (34/40, exactly at the target), refusals 6/6, f
 (was 82-91%), 7 template fallbacks, p50 6.0 s / p95 11.4 s, $0.0151/question -> PASS, but at the edge.
 Weak spot: a fallback without a component filter cites "Example reports: [a] [b] [c]" with no topic, and the
 judge rejects those (g01 0/3). Eval spend today $4.60 of $5, so no further eval run today.
+Follow-up (owner option 2, commit 31c6709): template example lines name each report's own components (from
+the DB); the report lists first-draft validator errors. Re-run of the 6 failing items only: 4/6 now pass
+(g01, g05, g13, g25); g04 still picks "examples"; g30 one unsupported citation. First-draft rejections are
+almost all the number word "one" (also "twice", and "12" from "12-volt"): the writer ignores the digits-only
+instruction. Owner decision pending on whether "one" should stay a flagged number word.
 
 ## Phase 3 — Search (branch `phase-3-search`; D8 miss accepted by owner)
 Done (2026-10-22): DuckDB fts BM25 over `complaint_docs`; bge-small-en-v1.5 embeddings on GPU
@@ -82,9 +87,8 @@ Owner decisions (2026-10-21):
 `recalls_sample.txt` (200 rows), built by `scripts/make_fixtures.py`, read by `tests/ingest/test_real_sample.py`.
 
 ## Next up
-1. Owner: spot-check 10 judge verdicts (data/eval/judge-2026-10-22.md); re-run `/phase-check 4` (tomorrow: eval cap)
-2. Optional before that: template example line names each report's components (from SQL); log first-draft
-   validator errors in the report to see why 41% of drafts fail (likely number words / "one")
+1. Owner: decide on "one"; spot-check 10 verdicts in data/eval/judge-2026-10-22-full-run.md
+2. Tomorrow (eval cap): full `make eval`, then `/phase-check 4`
 3. Then push, PR, `/learn`
 3. Phase 5: FastAPI + HTMX UI (`/`, `/ask`, record pages), Altair charts, disclaimer; cut p95 below 8 s
 
