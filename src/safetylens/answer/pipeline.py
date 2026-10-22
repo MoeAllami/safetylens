@@ -7,6 +7,8 @@ back to a deterministic template built from SQL rows, so a user always gets some
 import datetime as dt
 import json
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from itertools import zip_longest
 
@@ -36,6 +38,16 @@ from safetylens.store.sql import load_sql
 NARRATIVE_CHARS = 1200
 EVIDENCE_K = 8
 RETRIEVE_INTENTS = ("top_components", "trend", "examples", "compare")
+
+
+@contextmanager
+def _timed(timings: dict[str, float], stage: str) -> Iterator[None]:
+    """Add the seconds spent in a stage, so the eval can show where slow answers spend time."""
+    started = time.perf_counter()
+    try:
+        yield
+    finally:
+        timings[stage] = timings.get(stage, 0.0) + time.perf_counter() - started
 
 
 @dataclass
@@ -90,11 +102,20 @@ class Engine:
             for r in rows
         ]
 
-    def _writer_prompt(self, question: str, result: ComputeResult, evidence: list[Evidence]) -> str:
+    def _writer_prompt(
+        self,
+        question: str,
+        result: ComputeResult,
+        evidence: list[Evidence],
+        numbers: set[str],
+    ) -> str:
+        # allowed_numbers is exactly what the validator accepts, so a first draft can pass and
+        # skip the retry (a second full writer call is most of the slow answers' time).
         payload = {
             "question": question,
             "vehicles": [v.label for v in result.vehicles],
             "sql_results": result.tables,
+            "allowed_numbers": sorted(numbers),
             "complaints": [e.model_dump(mode="json") for e in evidence],
             "citable_ids": sorted(self._citable(result, evidence)),
         }
@@ -107,14 +128,18 @@ class Engine:
 
     def ask(self, question: str) -> Answer:
         started, spent = time.perf_counter(), self.llm.spent_usd
-        answer = self._ask(question)
+        timings: dict[str, float] = {}
+        answer = self._ask(question, timings)
         answer.latency_s = time.perf_counter() - started
+        answer.timings = timings
         answer.cost_usd = self.llm.spent_usd - spent
         return answer
 
-    def _ask(self, question: str) -> Answer:
+    def _ask(self, question: str, timings: dict[str, float]) -> Answer:
         try:
-            plan = self.llm.structured("planner", self._planner_system(), question, QueryPlan, 1500)
+            with _timed(timings, "planner"):
+                system = self._planner_system()
+                plan = self.llm.structured("planner", system, question, QueryPlan, 1500)
         except BudgetExceeded:
             return Answer(question=question, status="budget_exceeded", text=BUDGET)
         except LLMRefusal:
@@ -134,7 +159,8 @@ class Engine:
             refs.append(plan.compare_vehicle)
         vehicles: list[ResolvedVehicle] = []
         for ref in refs:
-            res = resolve(self.con, ref)
+            with _timed(timings, "resolve"):
+                res = resolve(self.con, ref)
             if res.status != "ok" or res.vehicle is None:
                 text = "Which vehicle did you mean? " + "; ".join(res.options)
                 return Answer(
@@ -146,8 +172,10 @@ class Engine:
                 )
             vehicles.append(res.vehicle)
 
-        result = compute(self.con, plan, vehicles)
-        evidence = self._evidence(plan, question, vehicles)
+        with _timed(timings, "sql"):
+            result = compute(self.con, plan, vehicles)
+        with _timed(timings, "retrieve"):
+            evidence = self._evidence(plan, question, vehicles)
         numbers = allowed_numbers(result, plan)
         citable = self._citable(result, evidence)
         base = Answer(
@@ -159,14 +187,18 @@ class Engine:
             evidence=evidence,
         )
 
-        user = self._writer_prompt(question, result, evidence)
+        user = self._writer_prompt(question, result, evidence, numbers)
         for attempt in range(2):
             try:
-                draft = self.llm.structured("writer", prompts.WRITER, user, WriterOutput, 4000)
+                with _timed(timings, f"writer_{attempt + 1}"):
+                    draft = self.llm.structured("writer", prompts.WRITER, user, WriterOutput, 2000)
             except (BudgetExceeded, LLMRefusal, LLMError):
                 break
             base.writer_calls += 1
-            errors = validate(self.con, draft.answer_markdown, draft.citations, numbers, citable)
+            with _timed(timings, "validate"):
+                errors = validate(
+                    self.con, draft.answer_markdown, draft.citations, numbers, citable
+                )
             if attempt == 0:
                 base.first_draft_errors = errors
             if not errors:

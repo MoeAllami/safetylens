@@ -31,7 +31,7 @@ test:
 	uv run pytest
 
 test-fast:
-	uv run pytest -m "not slow and not network" -x -q
+	uv run pytest -m "not slow and not network and not e2e" -x -q
 
 check:
 	uv run ruff check .
@@ -62,10 +62,10 @@ eval:
 	uv run safetylens eval
 
 e2e:
-	$(call stub,e2e,5)
+	uv run pytest -m e2e -q
 
 serve:
-	$(call stub,serve,5)
+	uv run safetylens serve
 
 acceptance:
 	$(call stub,acceptance,6)

@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<form hx-post="/ask" hx-target="#answer" hx-swap="innerHTML" hx-indicator="#working" method="post" action="/ask">
+  <label for="question">Ask about a vehicle's complaints or recalls</label>
+  <fieldset role="group">
+    <input id="question" name="question" type="text" maxlength="500" required
+           value="{{ question or '' }}" placeholder="{{ examples[0] }}">
+    <button type="submit">Ask</button>
+  </fieldset>
+  <small id="working" class="htmx-indicator" aria-busy="true">Checking the records…</small>
+</form>
+<details>
+  <summary>Example questions</summary>
+  <ul>
+  {% for q in examples %}<li>{{ q }}</li>{% endfor %}
+  </ul>
+</details>
+<section id="answer" aria-live="polite">
+  {% if answer %}{% include "_answer.html" %}{% endif %}
+</section>
+{% endblock %}

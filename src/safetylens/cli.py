@@ -184,6 +184,23 @@ def ask(question: str) -> None:
     )
 
 
+@app.command()
+def serve(
+    port: Annotated[int, typer.Option(help="port on 127.0.0.1")] = 8000,
+) -> None:
+    """Run the web app on localhost (uses the API for answers; record pages are offline)."""
+    import uvicorn
+
+    from safetylens.web.app import create_app
+
+    settings = Settings()
+    llm = runtime.build_llm(settings, "ask")
+    with db.connect(settings.data_dir / DB_NAME, read_only=True) as con:
+        # Built once, so the embedder and reranker are loaded before the first question.
+        engine = runtime.build_engine(settings, con, llm)
+        uvicorn.run(create_app(con, engine), host="127.0.0.1", port=port, log_level="warning")
+
+
 @app.command("eval")
 def eval_answers(
     golden: Annotated[Path, typer.Option(help="golden questions")] = Path("evals/golden.yaml"),
@@ -200,7 +217,9 @@ def eval_answers(
     with db.connect(settings.data_dir / DB_NAME, read_only=True) as con:
         report = golden_eval.run_golden(runtime.build_engine(settings, con, llm), items)
         path = golden_report.write_markdown(report, report_dir)
-        review = golden_report.write_judge_review(report, settings.data_dir / "eval")
+        # A subset run must not overwrite the full run's review the owner may be spot-checking.
+        review_dir = settings.data_dir / "eval" / ("subset" if ids else "")
+        review = golden_report.write_judge_review(report, review_dir)
     typer.echo(golden_report.format_summary(report))
     typer.echo(f"report: {path}")
     typer.echo(f"judge verdicts for spot-checking (git-ignored): {review}")

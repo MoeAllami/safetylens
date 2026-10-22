@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Recall {{ r.campno }} · SafetyLens{% endblock %}
+{% block content %}
+<h1>Recall {{ r.campno }}</h1>
+{% if r.do_not_drive %}<p><mark>Do not drive: the manufacturer advises not driving these vehicles until repaired.</mark></p>{% endif %}
+{% if r.park_outside %}<p><mark>Park outside: the manufacturer advises parking these vehicles outside until repaired.</mark></p>{% endif %}
+<table>
+  <tbody>
+    <tr><th>Manufacturer</th><td>{{ r.manufacturer or "–" }}</td></tr>
+    <tr><th>Report date</th><td>{{ r.report_date or "–" }}</td></tr>
+    <tr><th>Owner notice date</th><td>{{ r.owner_notice_date or "–" }}</td></tr>
+    <tr><th>Potentially affected</th><td>{{ "–" if r.potentially_affected is none else "{:,}".format(r.potentially_affected) }}</td></tr>
+  </tbody>
+</table>
+<h2>Defect</h2><p>{{ r.defect_summary or "–" }}</p>
+<h2>Consequence</h2><p>{{ r.consequence or "–" }}</p>
+<h2>Remedy</h2><p>{{ r.remedy or "–" }}</p>
+<h2>Vehicles covered</h2>
+<table class="striped">
+  <thead><tr><th>Make</th><th>Model</th><th>Year</th><th>Components</th></tr></thead>
+  <tbody>
+  {% for v in r.vehicles %}
+    <tr><td>{{ v.make }}</td><td>{{ v.model }}</td>
+        <td>{% if v.model_year %}<a href="/vehicle/{{ v.make | urlencode }}/{{ v.model | urlencode }}/{{ v.model_year }}">{{ v.model_year }}</a>{% else %}–{% endif %}</td>
+        <td>{{ v.components | join("; ") }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+<p><a id="nhtsa-link" href="{{ recall_url(r.campno) }}" rel="noopener" target="_blank">View this recall at NHTSA</a></p>
+{% endblock %}

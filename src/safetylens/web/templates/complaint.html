@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Complaint {{ c.odino }} · SafetyLens{% endblock %}
+{% block content %}
+<h1>Complaint {{ c.odino }}</h1>
+<p>{{ c.model_year or "Unknown year" }} {{ c.make }} {{ c.model }}</p>
+<table>
+  <tbody>
+    <tr><th>Received</th><td>{{ c.received_date or "–" }}</td></tr>
+    <tr><th>Failure date</th><td>{{ c.fail_date or "–" }}</td></tr>
+    <tr><th>Components</th><td>{{ c.components | join("; ") }}</td></tr>
+    <tr><th>Crash / fire</th><td>{{ "yes" if c.crash else "no" }} / {{ "yes" if c.fire else "no" }}</td></tr>
+    <tr><th>Injured / deaths</th><td>{{ "–" if c.injured is none else c.injured }} / {{ "–" if c.deaths is none else c.deaths }}</td></tr>
+    <tr><th>Miles</th><td>{{ c.miles or "–" }}</td></tr>
+    <tr><th>Speed (mph)</th><td>{{ c.veh_speed or "–" }}</td></tr>
+    <tr><th>State</th><td>{{ c.state or "–" }}</td></tr>
+  </tbody>
+</table>
+<h2>What the owner reported</h2>
+<p class="narrative">{{ c.narrative or "No narrative." }}</p>
+<p><a id="nhtsa-link" href="{{ complaint_url(c.odino) }}" rel="noopener" target="_blank">View this complaint at NHTSA</a></p>
+{% endblock %}

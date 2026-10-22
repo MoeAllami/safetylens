@@ -48,6 +48,10 @@ def write_markdown(report: GoldenReport, report_dir: Path) -> Path:
         "|---|---|---|---|---|---|---|---|",
         *rows,
     ]
+    stages = report.stage_latency()
+    if stages:
+        body += ["", "## Where the time goes", "", "| stage | p50 s | p95 s |", "|---|---|---|"]
+        body += [f"| {s} | {p50:.2f} | {p95:.2f} |" for s, (p50, p95) in stages.items()]
     rejected = [i for i in report.items if i.first_draft_errors]
     if rejected:
         body += ["", "## First drafts the validator rejected", ""]

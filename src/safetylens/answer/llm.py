@@ -34,7 +34,8 @@ class LLMRefusal(RuntimeError):
 
 
 class LLMError(RuntimeError):
-    """The reply could not be used (truncated or failed to parse)."""
+    """No usable reply: the API failed (after the SDK's own retries), or it was truncated or
+    did not parse."""
 
 
 class LLM(Protocol):
@@ -86,12 +87,18 @@ class AnthropicLLM:
             "output_format": schema,
             "output_config": {"effort": cfg.effort},
         }
-        if cfg.model in FALLBACK_CAPABLE:
-            response: Any = self._client.beta.messages.parse(
-                betas=[FALLBACK_BETA], fallbacks="default", **kwargs
-            )
-        else:
-            response = self._client.messages.parse(**kwargs)
+        try:
+            if cfg.model in FALLBACK_CAPABLE:
+                response: Any = self._client.beta.messages.parse(
+                    betas=[FALLBACK_BETA], fallbacks="default", **kwargs
+                )
+            else:
+                response = self._client.messages.parse(**kwargs)
+        except anthropic.APIError as exc:
+            # Overloaded, rate-limited, unreachable, out of credit: the caller falls back
+            # (error status or template answer) instead of crashing the request or the eval.
+            log.warning("llm_api_error", role=role, error=type(exc).__name__)
+            raise LLMError(f"{role} call failed: {type(exc).__name__}") from exc
         usage = response.usage
         served_by = str(response.model)
         cost = cost_usd(

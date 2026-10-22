@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% from "_chart.html" import chart %}
+{% block title %}{{ v.label }} · SafetyLens{% endblock %}
+{% block content %}
+<h1>{{ v.label }}</h1>
+<p>{{ "{:,}".format(count) }} distinct complaints · {{ severity.with_crash }} with a crash ·
+   {{ severity.with_fire }} with a fire · {{ severity.with_injury }} with an injury ·
+   {{ recalls | length }} recall campaigns</p>
+{% for spec in charts %}{{ chart(spec) }}{% endfor %}
+<h2>Most reported components</h2>
+<table class="striped">
+  <thead><tr><th>Component</th><th>Complaints</th><th>Crashes</th><th>Fires</th></tr></thead>
+  <tbody>{% for c in top %}<tr><td>{{ c.component or "–" }}</td><td>{{ c.complaints }}</td><td>{{ c.crashes }}</td><td>{{ c.fires }}</td></tr>{% endfor %}</tbody>
+</table>
+<h2>Recall campaigns</h2>
+{% if recalls %}
+<ul>{% for r in recalls %}<li><a href="/recall/{{ r.campno }}">{{ r.campno }}</a> ({{ r.report_date or "–" }}): {{ r.components | join("; ") }}</li>{% endfor %}</ul>
+{% else %}<p>No recall campaigns match.</p>{% endif %}
+{% endblock %}

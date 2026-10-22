@@ -90,3 +90,4 @@ class Answer(BaseModel):
     writer_calls: int = 0
     cost_usd: float = 0.0
     latency_s: float = 0.0
+    timings: dict[str, float] = {}  # seconds per stage (planner, sql, retrieve, writer_1, ...)

@@ -1,7 +1,7 @@
 # Progress
 
-**Current phase:** 4 — Answer engine + evals (phase-check PASS; PR pending)
-**Branch:** phase-4-answers
+**Current phase:** 5 — Web app
+**Branch:** phase-5-web
 
 ## Done (2026-10-21)
 - uv package (Python 3.12), typer + dev deps (ruff, mypy, pytest, pytest-cov, pre-commit, respx)
@@ -102,14 +102,28 @@ Owner decisions (2026-10-21):
 `tests/fixtures/complaints_sample.txt` (2,000 rows, 1,380 complaints, PII fields blanked) and
 `recalls_sample.txt` (200 rows), built by `scripts/make_fixtures.py`, read by `tests/ingest/test_real_sample.py`.
 
+## Phase 5 — Web app (branch `phase-5-web`)
+Done (2026-10-22): FastAPI + Jinja2 + HTMX + Pico (`src/safetylens/web/`): `/`, `POST /ask` (HTMX partial, full page
+without HTMX), `/complaint/{odi}`, `/recall/{campaign}`, `/vehicle/{make}/{model}/{year}`; Altair charts from SQL rows;
+disclaimer + attribution on every page; model text escaped before citation links; htmx/pico/vega vendored in
+`web/static` (no CDN). `safetylens serve` / `make serve` (127.0.0.1:8000, engine loaded once). `make e2e`: Playwright,
+FakeLLM on a test DB, ask -> answer -> citation -> complaint page -> NHTSA link + recall -> vehicle page (2 passed).
+SDK errors (529, rate limit, connection, out of credit) now become LLMError (round-3 note 2). Per-stage timings on every
+answer and a "Where the time goes" table in the eval report; subset runs (`--ids`) write the judge review to
+data/eval/subset/. `make check`: 167 passed, 94% coverage. Record pages on the dev DB: 0.02-0.10 s.
+Latency work (10-item subset of slow items, same ids each run):
+| change | first draft ok | p50 / p95 | golden (10) |
+|---|---|---|---|
+| baseline | 30% | 10.3 / 14.1 s | 70% |
+| writer gets allowed_numbers; narrative campaign ids not citable | 50% | 8.2 / 12.3 s | 90% |
+| + writer effort low (env only, not yet in .env) | 70% | 6.7 / 13.2 s | 100% |
+| + <= 120 words, explicit "never the word one", max_tokens 2000 | not measured: API credit ran out mid-run | | |
+Writer output ~400 tokens takes ~4 s; the p95 tail is the retry (second full writer call), mostly the word "one".
+
 ## Next up
-1. Push phase-4-answers, open the PR, CI green, merge; `/learn` for Phase 4
-2. Phase 5 task 1: FastAPI app + Jinja2/HTMX/Pico skeleton: `/` (question box), `/ask` partial rendering Answer
-   (text, citations linking to record pages, status), `safetylens serve`; TestClient tests with FakeLLM
-3. Phase 5 task 2: record pages `/complaint/{odino}` and `/recall/{campno}` (no PII) + Altair chart for
-   trend/top_components from ComputeResult, plus the "complaints are unverified, not defect rates" disclaimer
-4. Phase 5 task 3: cut p95 below 8 s: keep embedder/reranker loaded once per process, cache resolver/known
-   systems, measure where time goes (planner, retrieval, writer, retries), then `make e2e`
+1. Owner: add API credit; set `SAFETYLENS_WRITER_EFFORT=low` in .env if the full eval confirms it
+2. Re-run the 10-item subset with the 120-word prompt; then full `make eval` -> D12 (p95 < 8 s) + D5/D6/D7/D9
+3. Owner: `make serve` and try a question; then `/phase-check 5`, PR, `/learn`
 
 ## Non-blocking review notes
 - Phase 4 round 3: "2023,42" hides 42 (lookbehind skips digits after a comma/period); SDK errors (529, rate limit,
@@ -161,7 +175,7 @@ Owner decisions (2026-10-21):
 | 2 Analytics | done (/phase-check PASS, 0 blocking) | make check, make dq exit 0; crosscheck 10/10 exact | 2026-10-22 |
 | 3 Search | done with D8 miss (owner accepted) | rerank recall@10 test 0.777 (< 0.80) | 2026-10-22 |
 | 4 Answers | done (/phase-check PASS, 0 blocking) | make check 140 passed; make eval PASS: D5 100%, D6 100%, D7 98%, D9 92%, 6/6 | 2026-10-22 |
-| 5 Web app | not started | – | – |
+| 5 Web app | in progress: UI + e2e done, D12 pending (API credit) | make check 167 passed; make e2e 2 passed | 2026-10-22 |
 | 6 Polish | not started | – | – |
 
 ## Blockers / decisions needed
