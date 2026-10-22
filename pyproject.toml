@@ -1,0 +1,60 @@
+[project]
+name = "safetylens"
+version = "0.1.0"
+description = "Plain-English answers about NHTSA complaints and recalls, cited to real records."
+readme = "README.md"
+authors = [
+    { name = "MoeAllami", email = "143964025+MoeAllami@users.noreply.github.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "typer>=0.27.3",
+]
+
+[project.scripts]
+safetylens = "safetylens.cli:app"
+
+[build-system]
+requires = ["uv_build>=0.13.4,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "mypy>=2.4.0",
+    "pre-commit>=4.7.0",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "respx>=0.23.1",
+    "ruff>=0.17.1",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+
+[tool.mypy]
+strict = true
+files = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--strict-markers"
+markers = [
+    "slow: large data or model work, skipped by make test-fast",
+    "network: needs the live NHTSA or Anthropic API, skipped by make test-fast",
+    "idempotent: re-running ingest must give identical row counts and checksums",
+]
+
+[tool.coverage.run]
+source = ["safetylens"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
