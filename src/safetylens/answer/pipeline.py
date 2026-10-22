@@ -172,6 +172,7 @@ class Engine:
             base.validation_errors = errors
             user += "\n\n" + prompts.RETRY.format(errors="\n".join(f"- {e}" for e in errors))
 
-        base.text, base.citations = template_answer(result, evidence)
+        topic = plan.search_text or (plan.component_system or "").lower()
+        base.text, base.citations = template_answer(result, evidence, topic)
         base.status = "fallback_template"
         return base

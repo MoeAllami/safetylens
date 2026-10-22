@@ -18,12 +18,20 @@ BUDGET = (
 )
 
 
-def _cite(evidence: list[Evidence], n: int = 3) -> tuple[str, list[str]]:
+def _cite(evidence: list[Evidence], topic: str, n: int = 3) -> tuple[str, list[str]]:
+    """Name the problem in the citing sentence, so each cited report is cited for something."""
     ids = [e.odino for e in evidence[:n]]
-    return (" Example reports: " + " ".join(f"[{i}]" for i in ids) + ".", ids) if ids else ("", [])
+    if not ids:
+        return "", []
+    # Words with digits ("12-volt") are dropped: every number in a template must come from SQL.
+    words = [w for w in topic.split() if not any(ch.isdigit() for ch in w)]
+    about = f" describing {' '.join(words)}" if words else ""
+    return f"Example reports{about}: " + " ".join(f"[{i}]" for i in ids) + ".", ids
 
 
-def template_answer(result: ComputeResult, evidence: list[Evidence]) -> tuple[str, list[str]]:
+def template_answer(
+    result: ComputeResult, evidence: list[Evidence], topic: str = ""
+) -> tuple[str, list[str]]:
     lines: list[str] = []
     citations: list[str] = []
     counts = {r["vehicle"]: r["complaints"] for r in result.tables.get("complaint_count", [])}
@@ -54,7 +62,7 @@ def template_answer(result: ComputeResult, evidence: list[Evidence]) -> tuple[st
             )
             citations.append(str(r["campno"]))
     if result.intent != "recalls":
-        text, ids = _cite(evidence)
+        text, ids = _cite(evidence, topic)
         if text:
             lines.append(text.strip())
             citations += ids

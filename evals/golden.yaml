@@ -1,0 +1,287 @@
+# Golden questions (gate D9): 34 answerable + 6 out-of-scope.
+# Expected facts computed from SQL by scripts/golden_facts.py on the 2026-10-21 dev slice and
+# reviewed by the owner on 2026-10-22. Facts are checked on structured results, not prose.
+# After a re-ingest, regenerate a draft with the script and ask the owner before changing this file.
+items:
+- id: g01
+  question: What are the most common complaints for the 2021 Ford F-150?
+  intent: top_components
+  expected_facts:
+    resolved: FORD F150
+    distinct_complaints: 1031
+    top_component: POWER TRAIN
+- id: g02
+  question: What problems do owners report most for the 2023 Tesla Model Y?
+  intent: top_components
+  expected_facts:
+    resolved: TESLA MODELY
+    distinct_complaints: 1185
+    top_component: 'FORWARD COLLISION AVOIDANCE: ADAPTIVE CRUISE CONTROL'
+- id: g03
+  question: What are the most common brake complaints for 2022 Ford F-150s?
+  intent: top_components
+  expected_facts:
+    resolved: FORD F150
+    distinct_complaints: 30
+    top_component: SERVICE BRAKES
+    component_system: SERVICE BRAKES
+- id: g04
+  question: What steering problems are reported for the 2022 Honda Civic?
+  intent: top_components
+  expected_facts:
+    resolved: HONDA CIVIC
+    distinct_complaints: 733
+    top_component: STEERING
+    component_system: STEERING
+- id: g05
+  question: Which components get the most complaints on the 2021 Jeep Wrangler?
+  intent: top_components
+  expected_facts:
+    resolved: JEEP WRANGLER
+    distinct_complaints: 953
+    top_component: ELECTRICAL SYSTEM
+- id: g06
+  question: What engine problems do 2021 Chevrolet Silverado 1500 owners report most?
+  intent: top_components
+  expected_facts:
+    resolved: CHEVROLET SILVERADO1500
+    distinct_complaints: 389
+    top_component: ENGINE
+    component_system: ENGINE
+- id: g07
+  question: What are the top complaint areas for the 2023 Honda CR-V?
+  intent: top_components
+  expected_facts:
+    resolved: HONDA CRV
+    distinct_complaints: 517
+    top_component: STEERING
+- id: g08
+  question: What are the most reported issues with the 2021 Ram 1500?
+  intent: top_components
+  expected_facts:
+    resolved: RAM 1500
+    distinct_complaints: 683
+    top_component: ENGINE
+- id: g09
+  question: What are the most common air bag complaints for the 2021 Toyota Highlander?
+  intent: top_components
+  expected_facts:
+    resolved: TOYOTA HIGHLANDER
+    distinct_complaints: 42
+    top_component: AIR BAGS
+    component_system: AIR BAGS
+- id: g10
+  question: What do owners complain about most on the 2023 Nissan Rogue?
+  intent: top_components
+  expected_facts:
+    resolved: NISSAN ROGUE
+    distinct_complaints: 743
+    top_component: ENGINE
+- id: g11
+  question: How did steering complaints for the 2023 Tesla Model Y change by month during 2024?
+  intent: trend
+  expected_facts:
+    resolved: TESLA MODELY
+    component_system: STEERING
+    peak_month: 2024-02
+- id: g12
+  question: Show the monthly trend of complaints filed in 2023 for the 2021 Ford F-150.
+  intent: trend
+  expected_facts:
+    resolved: FORD F150
+    peak_month: 2023-05
+- id: g13
+  question: How have complaints about the 2022 Honda Civic changed month by month?
+  intent: trend
+  expected_facts:
+    resolved: HONDA CIVIC
+    peak_month: 2023-03
+- id: g14
+  question: What is the monthly trend of power train complaints for the 2021 Ford F-150?
+  intent: trend
+  expected_facts:
+    resolved: FORD F150
+    component_system: POWER TRAIN
+    peak_month: 2026-08
+- id: g15
+  question: How did complaints about the 2024 Honda Prologue change over time?
+  intent: trend
+  expected_facts:
+    resolved: HONDA PROLOGUE
+    peak_month: 2025-01
+- id: g16
+  question: How many complaints per month were filed in 2022 about the 2021 Jeep Wrangler?
+  intent: trend
+  expected_facts:
+    resolved: JEEP WRANGLER
+    peak_month: 2022-12
+- id: g17
+  question: Are there recalls for the 2021 Honda CR-V airbags?
+  intent: recalls
+  expected_facts:
+    resolved: HONDA CRV
+    component_system: AIR BAGS
+    campaigns_total: 2
+    campaign_in_results: 26V332000
+- id: g18
+  question: What recalls cover the 2021 Ford F-150?
+  intent: recalls
+  expected_facts:
+    resolved: FORD F150
+    campaigns_total: 29
+    campaign_in_results: 26V489000
+- id: g19
+  question: Are there any recalls on the 2023 Tesla Model Y?
+  intent: recalls
+  expected_facts:
+    resolved: TESLA MODELY
+    campaigns_total: 17
+    campaign_in_results: 26V507000
+- id: g20
+  question: Are there fuel system recalls for the 2021 Ford Bronco Sport?
+  intent: recalls
+  expected_facts:
+    resolved: FORD BRONCOSPORT
+    component_system: FUEL SYSTEM
+    campaigns_total: 4
+    campaign_in_results: 25V467000
+- id: g21
+  question: What recalls exist for the 2021 Jeep Wrangler?
+  intent: recalls
+  expected_facts:
+    resolved: JEEP WRANGLER
+    campaigns_total: 15
+    campaign_in_results: 26V363000
+- id: g22
+  question: Which recalls apply to the 2021 Chevrolet Silverado 1500?
+  intent: recalls
+  expected_facts:
+    resolved: CHEVROLET SILVERADO1500
+    campaigns_total: 8
+    campaign_in_results: 26V083000
+- id: g23
+  question: Are there recalls for the 2024 Honda Prologue?
+  intent: recalls
+  expected_facts:
+    resolved: HONDA PROLOGUE
+    campaigns_total: 3
+    campaign_in_results: 26V306000
+- id: g24
+  question: Have there been steering recalls on the 2023 Honda CR-V?
+  intent: recalls
+  expected_facts:
+    resolved: HONDA CRV
+    component_system: STEERING
+    campaigns_total: 1
+    campaign_in_results: 24V744000
+- id: g25
+  question: What do 2021 Ford F-150 owners say about the transmission?
+  intent: examples
+  expected_facts:
+    resolved: FORD F150
+    distinct_complaints: 318
+    component_system: POWER TRAIN
+- id: g26
+  question: Show me complaints about phantom braking on the 2023 Tesla Model Y.
+  intent: examples
+  expected_facts:
+    resolved: TESLA MODELY
+- id: g27
+  question: What are owners saying about sticky steering on the 2022 Honda Civic?
+  intent: examples
+  expected_facts:
+    resolved: HONDA CIVIC
+    distinct_complaints: 733
+    component_system: STEERING
+- id: g28
+  question: Show complaints about rear axle bolts breaking on the 2021 Ford F-150.
+  intent: examples
+  expected_facts:
+    resolved: FORD F150
+- id: g29
+  question: What do people report about the death wobble on 2021 Jeep Wranglers?
+  intent: examples
+  expected_facts:
+    resolved: JEEP WRANGLER
+- id: g30
+  question: What do owners say about the 12-volt battery dying on the 2021 Ford Bronco Sport?
+  intent: examples
+  expected_facts:
+    resolved: FORD BRONCOSPORT
+- id: g31
+  question: Compare complaints for the 2021 Ford F-150 and the 2021 Chevrolet Silverado 1500.
+  intent: compare
+  expected_facts:
+    resolved:
+    - FORD F150
+    - CHEVROLET SILVERADO1500
+    distinct_complaints:
+    - 1031
+    - 846
+- id: g32
+  question: How do 2022 Tesla Model 3 complaints compare with the 2022 Tesla Model Y?
+  intent: compare
+  expected_facts:
+    resolved:
+    - TESLA MODEL3
+    - TESLA MODELY
+    distinct_complaints:
+    - 767
+    - 871
+- id: g33
+  question: Compare brake complaints for the 2022 Honda Civic and the 2022 Toyota Camry.
+  intent: compare
+  expected_facts:
+    resolved:
+    - HONDA CIVIC
+    - TOYOTA CAMRY
+    distinct_complaints:
+    - 23
+    - 7
+    component_system: SERVICE BRAKES
+- id: g34
+  question: Compare complaints about the 2023 Honda CR-V and the 2023 Toyota RAV4.
+  intent: compare
+  expected_facts:
+    resolved:
+    - HONDA CRV
+    - TOYOTA RAV4
+    distinct_complaints:
+    - 517
+    - 160
+- id: g35
+  question: Is the Ford Maverick safe?
+  intent: out_of_scope
+  must_cite: false
+  expected_facts:
+    status: refused
+- id: g36
+  question: Which truck should I buy, the F-150 or the Silverado?
+  intent: out_of_scope
+  must_cite: false
+  expected_facts:
+    status: refused
+- id: g37
+  question: Should I worry about driving my 2021 Jeep Wrangler?
+  intent: out_of_scope
+  must_cite: false
+  expected_facts:
+    status: refused
+- id: g38
+  question: What is the best SUV for a family?
+  intent: out_of_scope
+  must_cite: false
+  expected_facts:
+    status: refused
+- id: g39
+  question: What is the weather in Detroit today?
+  intent: out_of_scope
+  must_cite: false
+  expected_facts:
+    status: refused
+- id: g40
+  question: Is Tesla a good stock to buy?
+  intent: out_of_scope
+  must_cite: false
+  expected_facts:
+    status: refused
