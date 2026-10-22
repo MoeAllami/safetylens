@@ -12,9 +12,8 @@ from safetylens.answer.golden import (
     check_facts,
     load_golden,
     run_golden,
-    write_judge_review,
-    write_markdown,
 )
+from safetylens.answer.golden_report import write_judge_review, write_markdown
 from safetylens.answer.llm import FakeLLM
 from safetylens.answer.models import JudgeVerdict, QueryPlan
 
@@ -72,7 +71,7 @@ def test_out_of_scope_item_needs_a_clean_refusal(answer_db: duckdb.DuckDBPyConne
 def test_check_facts_on_recalls_and_status(answer_db: duckdb.DuckDBPyConnection) -> None:
     from safetylens.answer.models import WriterOutput
 
-    writer = WriterOutput(answer_markdown="One recall [22V123000].", citations=["22V123000"])
+    writer = WriterOutput(answer_markdown="1 recall [22V123000].", citations=["22V123000"])
     llm = FakeLLM().script("planner", plan("recalls")).script("writer", writer)
     answer = engine(answer_db, llm).ask("q")
     item = _item(

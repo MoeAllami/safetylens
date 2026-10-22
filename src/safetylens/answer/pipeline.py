@@ -25,7 +25,7 @@ from safetylens.answer.models import (
     WriterOutput,
 )
 from safetylens.answer.resolver import resolve
-from safetylens.answer.template import BUDGET, REFUSAL, template_answer
+from safetylens.answer.template import BUDGET, ERROR, REFUSAL, template_answer
 from safetylens.answer.validator import validate
 from safetylens.search.embed import Embedder
 from safetylens.search.rerank import Reranker
@@ -112,8 +112,10 @@ class Engine:
             plan = self.llm.structured("planner", self._planner_system(), question, QueryPlan, 1500)
         except BudgetExceeded:
             return Answer(question=question, status="budget_exceeded", text=BUDGET)
-        except (LLMRefusal, LLMError):
+        except LLMRefusal:
             return Answer(question=question, status="refused", text=REFUSAL)
+        except LLMError:
+            return Answer(question=question, status="error", text=ERROR)
         if plan.intent == "out_of_scope" or plan.vehicle is None:
             return Answer(question=question, status="refused", text=REFUSAL, plan=plan)
         first = plan.vehicle
@@ -172,7 +174,14 @@ class Engine:
             base.validation_errors = errors
             user += "\n\n" + prompts.RETRY.format(errors="\n".join(f"- {e}" for e in errors))
 
-        topic = plan.search_text or (plan.component_system or "").lower()
-        base.text, base.citations = template_answer(result, evidence, topic)
-        base.status = "fallback_template"
+        # The topic comes from the validated component system, never from free LLM text, and the
+        # template is validated like any draft before anyone sees it.
+        topic = (plan.component_system or "").lower()
+        text, citations = template_answer(result, evidence, topic)
+        errors = validate(self.con, text, citations, numbers, citable)
+        if errors:
+            base.status, base.text, base.citations = "error", ERROR, []
+            base.validation_errors = errors
+            return base
+        base.text, base.citations, base.status = text, citations, "fallback_template"
         return base

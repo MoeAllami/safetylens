@@ -14,7 +14,7 @@ import typer
 from safetylens import __version__
 from safetylens.analytics.templates import VehicleFilter
 from safetylens.answer import golden as golden_eval
-from safetylens.answer import runtime
+from safetylens.answer import golden_report, runtime
 from safetylens.config import Settings
 from safetylens.crosscheck.crosscheck import crosscheck, format_table, load_vehicles
 from safetylens.crosscheck.nhtsa_api import NhtsaApi
@@ -199,9 +199,9 @@ def eval_answers(
     llm = runtime.build_llm(settings, "eval")
     with db.connect(settings.data_dir / DB_NAME, read_only=True) as con:
         report = golden_eval.run_golden(runtime.build_engine(settings, con, llm), items)
-        path = golden_eval.write_markdown(report, report_dir)
-        review = golden_eval.write_judge_review(report, settings.data_dir / "eval")
-    typer.echo(golden_eval.format_summary(report))
+        path = golden_report.write_markdown(report, report_dir)
+        review = golden_report.write_judge_review(report, settings.data_dir / "eval")
+    typer.echo(golden_report.format_summary(report))
     typer.echo(f"report: {path}")
     typer.echo(f"judge verdicts for spot-checking (git-ignored): {review}")
     if not report.passed():

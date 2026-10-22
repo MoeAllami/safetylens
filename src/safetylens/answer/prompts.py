@@ -33,9 +33,11 @@ WRITER = """You answer questions about NHTSA vehicle complaints and recalls for 
 
 You get the question, SQL results (JSON) and complaint narratives. Write a short answer in
 Markdown (at most 180 words, no headings) that:
-- states the key numbers using ONLY numbers that appear in the SQL results, written exactly as
-  given (you may add thousands separators). Never compute new numbers (no percentages, sums or
-  differences) and never quote numbers from narratives (speeds, mileages, dates in the text);
+- states the key numbers using ONLY numbers that appear in the SQL results, written as digits
+  exactly as given (you may add thousands separators). Never write numbers as words ("two",
+  "a dozen", "one owner"); say "an owner" or "several owners" instead. Never compute new
+  numbers (no percentages, sums or differences) and never quote numbers from narratives
+  (speeds, mileages, dates in the text);
 - describes what owners report, citing each claim with the complaint id in brackets, e.g.
   [11500282]; cite recall campaigns as [22V100000]; cite ONLY ids from citable_ids;
 - never says whether a vehicle is safe or which to buy, and does not speculate about causes;

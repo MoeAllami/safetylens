@@ -86,5 +86,6 @@ def allowed_numbers(result: ComputeResult, plan: QueryPlan) -> set[str]:
     """Numbers the prose may contain: anything in the SQL rows, vehicle labels and plan dates."""
     values: list[Any] = [result.tables]
     values += [v.label for v in result.vehicles]
-    values += [plan.received_from or "", plan.received_to or ""]
+    # Only dates that parsed and reached SQL; a malformed planner date vouches for nothing.
+    values += [d.isoformat() for d in (_date(plan.received_from), _date(plan.received_to)) if d]
     return numbers_from_values(values)

@@ -1,12 +1,13 @@
 import json
 
 import duckdb
+import pytest
 from conftest import engine, plan
 
 from safetylens.answer.budget import BudgetExceeded
-from safetylens.answer.llm import FakeLLM, LLMRefusal
+from safetylens.answer.llm import FakeLLM, LLMError, LLMRefusal
 from safetylens.answer.models import QueryPlan, WriterOutput
-from safetylens.answer.template import REFUSAL
+from safetylens.answer.template import ERROR, REFUSAL
 
 GOOD = WriterOutput(
     answer_markdown="The 2022 F-150 has 4 complaints; owners report brake failure [11000001].",
@@ -76,7 +77,7 @@ def test_budget_and_refusals_never_crash(answer_db: duckdb.DuckDBPyConnection) -
 
 def test_recalls_cite_campaigns_without_retrieval(answer_db: duckdb.DuckDBPyConnection) -> None:
     writer = WriterOutput(
-        answer_markdown="One recall covers it [22V123000].", citations=["22V123000"]
+        answer_markdown="1 recall covers it [22V123000].", citations=["22V123000"]
     )
     llm = FakeLLM().script("planner", plan("recalls")).script("writer", writer)
     answer = engine(answer_db, llm).ask("recalls?")
@@ -88,3 +89,33 @@ def test_compare_resolves_two_vehicles(answer_db: duckdb.DuckDBPyConnection) -> 
     llm = FakeLLM().script("planner", p).script("writer", GOOD)
     answer = engine(answer_db, llm).ask("compare")
     assert answer.compute is not None and len(answer.compute.vehicles) == 2
+
+
+def test_fallback_template_uses_no_llm_text_and_is_validated(
+    answer_db: duckdb.DuckDBPyConnection,
+) -> None:
+    sneaky = plan(search_text="twelve owners died in fires", component_system="SERVICE BRAKES")
+    llm = FakeLLM().script("planner", sneaky).script("writer", BAD, BAD)
+    answer = engine(answer_db, llm).ask("q")
+    assert answer.status == "fallback_template"
+    assert "twelve" not in answer.text and "fires" not in answer.text
+    assert "Example reports describing service brakes:" in answer.text
+
+
+def test_template_that_fails_validation_becomes_an_error(
+    answer_db: duckdb.DuckDBPyConnection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from safetylens.answer import pipeline
+
+    monkeypatch.setattr(pipeline, "template_answer", lambda *_: ("999 complaints.", []))
+    llm = FakeLLM().script("planner", plan()).script("writer", BAD, BAD)
+    answer = engine(answer_db, llm).ask("q")
+    assert (answer.status, answer.text, answer.citations) == ("error", ERROR, [])
+    assert answer.validation_errors[0].startswith("numbers not in the SQL results: 999")
+
+
+def test_planner_error_is_not_dressed_up_as_a_safety_refusal(
+    answer_db: duckdb.DuckDBPyConnection,
+) -> None:
+    answer = engine(answer_db, FakeLLM().script("planner", LLMError("truncated"))).ask("q")
+    assert (answer.status, answer.text) == ("error", ERROR)

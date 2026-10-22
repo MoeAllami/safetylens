@@ -11,7 +11,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 Intent = Literal["top_components", "trend", "recalls", "examples", "compare", "out_of_scope"]
-Status = Literal["answered", "refused", "clarify", "fallback_template", "budget_exceeded"]
+Status = Literal["answered", "refused", "clarify", "fallback_template", "budget_exceeded", "error"]
 
 
 class VehicleRef(BaseModel):

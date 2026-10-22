@@ -13,9 +13,8 @@ REFUSAL = (
     'specific vehicle, for example "What are the most common complaints for a 2022 Ford F-150?" '
     'or "Are there recalls for the 2021 Honda CR-V?"'
 )
-BUDGET = (
-    "The daily budget for answers has been reached. The numbers below come straight from the data."
-)
+BUDGET = "The daily budget for answers has been reached. Please try again tomorrow."
+ERROR = "Sorry, I couldn't produce a verified answer to this question. Please try rephrasing it."
 
 
 def _cite(evidence: list[Evidence], topic: str, n: int = 3) -> tuple[str, list[str]]:

@@ -16,12 +16,25 @@ def test_numbers_in_skips_identifiers_and_citations() -> None:
         "There were 1,031 complaints (12.5 in May) [11500282] "
         "on the 10R80, P0700 and 4xe [22V100000]."
     )
-    assert numbers_in(text) == {"1031", "12.5"}
+    # 10R80 and P0700 are identifiers; "4xe" is a digit with a unit-like suffix, so 4 is checked.
+    assert numbers_in(text) == {"1031", "12.5", "4"}
 
 
-def test_numbers_from_values_splits_dates_and_labels() -> None:
+def test_dates_stay_whole_so_a_day_cannot_vouch_for_a_count() -> None:
     found = numbers_from_values([{"month": "2024-03-01", "complaints": 7}, "2022 FORD F-150"])
-    assert {"2024", "3", "1", "7", "2022", "150"} <= found
+    assert {"2024-03-01", "2024-03", "2024", "7", "2022", "150"} <= found
+    assert "3" not in found and "1" not in found
+    assert numbers_in("The peak was 2024-03 with 7 complaints.") <= found
+    assert "3" in numbers_in("3 owners describe fires.") - found
+
+
+def test_number_words_and_units_are_numbers_too() -> None:
+    assert numbers_in("Two owners and a dozen others; it happened twice.") == {
+        "two",
+        "dozen",
+        "twice",
+    }
+    assert numbers_in("at 60mph, 3x a week, the 2nd time") == {"60", "3", "2"}
 
 
 def test_citations_in_keeps_order_and_dedupes() -> None:
@@ -59,3 +72,10 @@ def test_citation_missing_from_database_is_rejected(answer_db: duckdb.DuckDBPyCo
 def test_cited_but_undeclared_is_rejected(answer_db: duckdb.DuckDBPyConnection) -> None:
     errors = validate(answer_db, "Reported [11000001].", [], ALLOWED_NUMBERS, ALLOWED_IDS)
     assert errors == ["cited in the text but missing from the citations list: 11000001"]
+
+
+def test_validator_rejects_spelled_out_counts(answer_db: duckdb.DuckDBPyConnection) -> None:
+    (error,) = validate(
+        answer_db, "Two owners report it [11000001].", ["11000001"], ALLOWED_NUMBERS, ALLOWED_IDS
+    )
+    assert error.startswith("numbers not in the SQL results: two")

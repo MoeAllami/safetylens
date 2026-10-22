@@ -17,7 +17,7 @@ def _render(con: duckdb.DuckDBPyConnection, intent: str) -> tuple[str, list[str]
     assert vehicle is not None
     vehicles = [vehicle, vehicle] if intent == "compare" else [vehicle]
     result = compute(con, p, vehicles)
-    text, cites = template_answer(result, EVIDENCE, "brakes failing on a 12-volt system")
+    text, cites = template_answer(result, EVIDENCE, "service brakes")
     return text, cites, allowed_numbers(result, p)
 
 
@@ -38,8 +38,8 @@ def test_trend_and_recall_templates_say_the_right_thing(
     assert cites == ["22V123000"] and "[22V123000] SERVICE BRAKES, HYDRAULIC" in recalls
 
 
-def test_citing_sentence_names_the_topic_without_its_numbers(
+def test_citing_sentence_names_the_topic(
     answer_db: duckdb.DuckDBPyConnection,
 ) -> None:
     text, _, _ = _render(answer_db, "top_components")
-    assert "Example reports describing brakes failing on a system: [11000001]." in text
+    assert "Example reports describing service brakes: [11000001]." in text
