@@ -25,6 +25,17 @@ One entry per phase, written in your own words (the `/learn` skill helps).
   - Grain: https://www.kimballgroup.com/data-warehouse-business-intelligence-resources/kimball-techniques/dimensional-modeling-techniques/grain/
   - Encodings: https://www.joelonsoftware.com/2003/10/08/the-absolute-minimum-every-software-developer-absolutely-positively-must-know-about-unicode-and-character-sets-no-excuses/
 
+### 2026-10-22 — Phase 2
+- **Concepts:** golden tests vs snapshots, and test oracles (`tests/analytics/test_templates.py`, `test_real_sample_oracle.py`); parameterized SQL templates with optional filters `$x IS NULL OR col = $x` (`store/queries/top_components.sql`, `analytics/templates.py::_rows`, `count_rows.sql` via `query_table(?)`); cross-checking against an external reference with data minimization (`crosscheck/crosscheck.py::api_distinct_odis`, `crosscheck/nhtsa_api.py`).
+- **Q&A:**
+  - *Why hand-computed expectations instead of pasting the template's output?* A snapshot locks in bugs (a `count(*)` version would record 6 and pass forever); the hand-computed `test_complaint_count` asserts 5. The oracle only catches bugs where its logic differs, so the hand-made traps cover shared misconceptions. Expected values must come from a source independent of the code under test.
+  - *Why `$x IS NULL OR col = $x` instead of appending SQL strings?* String-building lets planner output like `BRAKES' OR '1'='1` become SQL (injection, and effectively LLM-written SQL). Bound parameters keep values as data. NULL never compares true, so year filters drop unknown (9999) years for free. No test yet tries an injection-shaped value; add one in Phase 4.
+  - *How could the crosscheck pass with wrong numbers, or fail with right ones?* Both sides come from NHTSA, so shared NHTSA errors agree; the check proves we reproduce NHTSA, not reality. A 2019 model year would fail because its complaints were received before the 2020+ dev slice; API live-vs-snapshot lag is absorbed by 2% and the 450-complaint minimum. Only manual `make crosscheck` catches this; CI never runs it.
+- **Read next:**
+  - Test oracles: https://en.wikipedia.org/wiki/Test_oracle
+  - SQL injection and parameters: https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html
+  - NHTSA datasets and APIs: https://www.nhtsa.gov/nhtsa-datasets-and-apis
+
 ## Template
 ### YYYY-MM-DD — Phase N
 - **Concepts:**
