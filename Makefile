@@ -40,15 +40,17 @@ check:
 
 data-dev:
 	uv run safetylens ingest --slice dev
+	uv run safetylens build
 
 data-full:
 	uv run safetylens ingest --slice full
+	uv run safetylens build
 
 dq:
 	uv run safetylens dq
 
 crosscheck:
-	$(call stub,crosscheck,2)
+	uv run safetylens crosscheck
 
 eval-retrieval:
 	$(call stub,eval-retrieval,3)

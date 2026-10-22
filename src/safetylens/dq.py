@@ -1,4 +1,4 @@
-"""Data-quality checks on the raw tables (gate D3).
+"""Data-quality checks on the raw and normalized tables (gate D3).
 
 Why exit non-zero on any failure: a data problem found here is cheap; found later it would show up
 as a wrong count in an answer.
@@ -9,6 +9,7 @@ from dataclasses import dataclass
 import duckdb
 
 from safetylens.store import db
+from safetylens.store.build import BUILT_TABLES
 from safetylens.store.sql import load_sql
 
 # Personal data that must never reach DuckDB (CLAUDE.md rule 4).
@@ -22,7 +23,7 @@ FORBIDDEN_COLUMNS = (
     "dealer_state",
     "dealer_zip",
 )
-REQUIRED_TABLES = ("complaints_raw", "recalls_raw", "ingest_runs")
+REQUIRED_TABLES = ("complaints_raw", "recalls_raw", "ingest_runs", *BUILT_TABLES)
 
 
 @dataclass(frozen=True)
@@ -40,20 +41,22 @@ def _scalar(con: duckdb.DuckDBPyConnection, query: str) -> int:
     return int(row[0])
 
 
+def _zero(name: str, value: int, what: str) -> CheckResult:
+    return CheckResult(name, value == 0, f"{value} {what}")
+
+
 def run_checks(con: duckdb.DuckDBPyConnection) -> list[CheckResult]:
-    present = {r[0] for r in con.execute(load_sql("dq_tables_present")).fetchall()}
+    rows = con.execute(load_sql("dq_tables_present"), [list(REQUIRED_TABLES)]).fetchall()
+    present = {r[0] for r in rows}
     missing = [t for t in REQUIRED_TABLES if t not in present]
     if missing:
-        return [CheckResult("tables present", False, f"missing {missing}; run `make data-dev`")]
+        hint = "run `make data-dev` (ingest + build)"
+        return [CheckResult("tables present", False, f"missing {missing}; {hint}")]
 
     complaints = db.summarize(con, "complaints")
     recalls = db.summarize(con, "recalls")
-    pii = [
-        r[0] for r in con.execute(load_sql("dq_pii_columns"), [list(FORBIDDEN_COLUMNS)]).fetchall()
-    ]
-    missing_odino = _scalar(con, "dq_missing_odino")
-    duplicates = _scalar(con, "dq_duplicate_components")
-    missing_campno = _scalar(con, "dq_missing_campno")
+    pii_rows = con.execute(load_sql("dq_pii_columns"), [list(FORBIDDEN_COLUMNS)]).fetchall()
+    pii = [r[0] for r in pii_rows]
     product_repeats = _scalar(con, "dq_product_repeats")
     return [
         CheckResult("complaints loaded", complaints.row_count > 0, f"{complaints.row_count} rows"),
@@ -62,11 +65,11 @@ def run_checks(con: duckdb.DuckDBPyConnection) -> list[CheckResult]:
             complaints.distinct_keys > 0,
             f"{complaints.distinct_keys} distinct ODINO",
         ),
-        CheckResult("0 missing ODINO", missing_odino == 0, f"{missing_odino} missing"),
-        CheckResult(
+        _zero("0 missing ODINO", _scalar(con, "dq_missing_odino"), "missing"),
+        _zero(
             "0 duplicate vehicle (odino, component)",
-            duplicates == 0,
-            f"{duplicates} duplicated pairs among prod_type='V'",
+            _scalar(con, "dq_duplicate_components"),
+            "duplicated pairs among prod_type='V'",
         ),
         CheckResult(
             "repeated non-vehicle product rows",
@@ -75,7 +78,23 @@ def run_checks(con: duckdb.DuckDBPyConnection) -> list[CheckResult]:
             gate=False,
         ),
         CheckResult("recalls loaded", recalls.row_count > 0, f"{recalls.row_count} rows"),
-        CheckResult("0 missing CAMPNO", missing_campno == 0, f"{missing_campno} missing"),
+        _zero("0 missing CAMPNO", _scalar(con, "dq_missing_campno"), "missing"),
+        _zero(
+            "complaints: one row per (odino, component)",
+            _scalar(con, "dq_complaints_unique"),
+            "duplicated pairs",
+        ),
+        _zero("complaint_docs: one row per complaint", _scalar(con, "dq_docs_match"), "rows off"),
+        _zero(
+            "complaint fields agree across components",
+            _scalar(con, "dq_complaint_attrs_consistent"),
+            "complaints with conflicting fields",
+        ),
+        _zero(
+            "recalls: one row per (campaign, vehicle, component)",
+            _scalar(con, "dq_recalls_unique"),
+            "duplicated rows",
+        ),
         CheckResult("PII columns absent", not pii, "none found" if not pii else ", ".join(pii)),
     ]
 

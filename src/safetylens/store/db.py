@@ -38,13 +38,13 @@ def load_raw_table(
     con: duckdb.DuckDBPyConnection, kind: Kind, parquet_files: Sequence[Path]
 ) -> None:
     files = [p.as_posix() for p in parquet_files]
-    con.execute("BEGIN")
+    con.begin()
     try:
         con.execute(load_sql(_LOAD_SQL[kind]), [files])
     except BaseException:
-        con.execute("ROLLBACK")
+        con.rollback()
         raise
-    con.execute("COMMIT")
+    con.commit()
 
 
 def summarize(con: duckdb.DuckDBPyConnection, kind: Kind) -> TableSummary:
@@ -52,6 +52,14 @@ def summarize(con: duckdb.DuckDBPyConnection, kind: Kind) -> TableSummary:
     if row is None:
         raise RuntimeError(f"summary for {kind} returned no row")
     return TableSummary(int(row[0]), int(row[1]), str(row[2]))
+
+
+def count_rows(con: duckdb.DuckDBPyConnection, table: str) -> int:
+    """Row count of a table, passing its name as a bound parameter to query_table()."""
+    row = con.execute(load_sql("count_rows"), [table]).fetchone()
+    if row is None:
+        raise RuntimeError(f"count of {table} returned no row")
+    return int(row[0])
 
 
 def record_run(con: duckdb.DuckDBPyConnection, values: Sequence[object]) -> None:

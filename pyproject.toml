@@ -12,6 +12,7 @@ dependencies = [
     "httpx>=0.28.1",
     "pyarrow>=26.0.0",
     "pydantic-settings>=2.16.1",
+    "pyyaml>=6.0.3",
     "structlog>=26.1.0",
     "typer>=0.27.3",
 ]
@@ -32,6 +33,7 @@ dev = [
     "pytest-cov>=7.1.0",
     "respx>=0.23.1",
     "ruff>=0.17.1",
+    "types-pyyaml>=6.0.12.20260906",
 ]
 
 [tool.ruff]
@@ -51,6 +53,7 @@ plugins = ["pydantic.mypy"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["tests"]  # lets every test import the shared tests/builders.py
 addopts = "--strict-markers"
 markers = [
     "slow: large data or model work, skipped by make test-fast",
