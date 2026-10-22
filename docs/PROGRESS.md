@@ -28,6 +28,11 @@ but the reviewer found 4 blocking issues; the first three mean the D5 validator 
 2. number words ("two owners") and digit+unit tokens ("60mph", "3x") are never checked
 3. the template fallback is not validated and includes the planner's free-text search_text
 4. answer/golden.py is 323 lines (> 300)
+Fixed (2026-10-22, commit after dc1ff2e): all 4, with tests (131 passed). `make eval` with the stricter validator:
+D5 100%, D6 100%, D7 96%, D9 85% (34/40, exactly at the target), refusals 6/6, first draft valid 59%
+(was 82-91%), 7 template fallbacks, p50 6.0 s / p95 11.4 s, $0.0151/question -> PASS, but at the edge.
+Weak spot: a fallback without a component filter cites "Example reports: [a] [b] [c]" with no topic, and the
+judge rejects those (g01 0/3). Eval spend today $4.60 of $5, so no further eval run today.
 
 ## Phase 3 — Search (branch `phase-3-search`; D8 miss accepted by owner)
 Done (2026-10-22): DuckDB fts BM25 over `complaint_docs`; bge-small-en-v1.5 embeddings on GPU
@@ -77,9 +82,10 @@ Owner decisions (2026-10-21):
 `recalls_sample.txt` (200 rows), built by `scripts/make_fixtures.py`, read by `tests/ingest/test_real_sample.py`.
 
 ## Next up
-1. Fix the 4 blocking items with tests (dates as whole tokens, number words + units, validate the template and
-   drop LLM text from it, split golden.py); re-run `make eval` (expect lower first-draft rate, maybe more fallbacks)
-2. Owner: spot-check 10 judge verdicts; re-run `/phase-check 4`; then push, PR, `/learn`
+1. Owner: spot-check 10 judge verdicts (data/eval/judge-2026-10-22.md); re-run `/phase-check 4` (tomorrow: eval cap)
+2. Optional before that: template example line names each report's components (from SQL); log first-draft
+   validator errors in the report to see why 41% of drafts fail (likely number words / "one")
+3. Then push, PR, `/learn`
 3. Phase 5: FastAPI + HTMX UI (`/`, `/ask`, record pages), Altair charts, disclaimer; cut p95 below 8 s
 
 ## Non-blocking review notes
@@ -116,9 +122,9 @@ Owner decisions (2026-10-21):
 | Crosscheck vs live API (10 vehicles) | 10/10, max diff 0.00% | 2026-10-22 |
 | Embedding throughput (docs/s) | 769 (RTX 4060 Ti) | 2026-10-22 |
 | Hybrid recall@10 (test split) | 0.770 hybrid / 0.777 reranked | 2026-10-22 |
-| Golden pass rate | 92% (37/40), refusals 6/6 | 2026-10-22 |
-| p95 latency | 13.0 s (p50 5.7 s) | 2026-10-22 |
-| Mean cost / question | $0.0125 (+ judge $0.41 per eval run) | 2026-10-22 |
+| Golden pass rate | 85% (34/40), refusals 6/6 (stricter validator) | 2026-10-22 |
+| p95 latency | 11.4 s (p50 6.0 s) | 2026-10-22 |
+| Mean cost / question | $0.0151 (+ judge $0.36 per eval run) | 2026-10-22 |
 
 ## Phase log
 | Phase | Status | Gate result | Date |
@@ -127,7 +133,7 @@ Owner decisions (2026-10-21):
 | 1 Ingest | done | make check, make dq, pytest -m idempotent exit 0; fixture committed | 2026-10-21 |
 | 2 Analytics | done (/phase-check PASS, 0 blocking) | make check, make dq exit 0; crosscheck 10/10 exact | 2026-10-22 |
 | 3 Search | done with D8 miss (owner accepted) | rerank recall@10 test 0.777 (< 0.80) | 2026-10-22 |
-| 4 Answers | phase-check FAIL (4 blocking review items) | make eval PASS: D5 100%*, D6 100%, D7 99%, D9 95%, 6/6 | 2026-10-22 |
+| 4 Answers | blocking items fixed; phase-check re-run pending | make eval PASS: D5 100%, D6 100%, D7 96%, D9 85%, 6/6 | 2026-10-22 |
 | 5 Web app | not started | – | – |
 | 6 Polish | not started | – | – |
 
