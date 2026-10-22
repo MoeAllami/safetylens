@@ -1,0 +1,14 @@
+# Gate D4: our COUNT(DISTINCT odino) must be within 2% of NHTSA's live complaintsByVehicle API.
+# Model years 2021-2024 so every complaint falls inside the dev slice (received 2020+), and each
+# vehicle has >= 450 complaints so 2% is at least 9 complaints. Approved by the owner 2026-10-22.
+vehicles:
+  - {make: TESLA, model: MODEL Y, year: 2023}
+  - {make: FORD, model: F-150, year: 2021}
+  - {make: JEEP, model: WRANGLER, year: 2021}
+  - {make: HONDA, model: CIVIC, year: 2022}
+  - {make: CHEVROLET, model: SILVERADO 1500, year: 2021}
+  - {make: TESLA, model: MODEL 3, year: 2022}
+  - {make: NISSAN, model: ROGUE, year: 2023}
+  - {make: RAM, model: "1500", year: 2021}
+  - {make: TOYOTA, model: HIGHLANDER, year: 2021}
+  - {make: HONDA, model: CR-V, year: 2023}

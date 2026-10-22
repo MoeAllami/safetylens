@@ -1,7 +1,7 @@
 # Progress
 
-**Current phase:** 1 — Ingest
-**Branch:** phase-1-ingest
+**Current phase:** 2 — Normalize + analytics
+**Branch:** phase-2-analytics
 
 ## Done (2026-10-21)
 - uv package (Python 3.12), typer + dev deps (ruff, mypy, pytest, pytest-cov, pre-commit, respx)
@@ -9,7 +9,18 @@
 - .gitignore, .gitattributes, .env.example, pre-commit, GitHub Actions CI
 - `make check` exit 0 (2 passed, 1 xfailed, coverage 100%); CI green on PR #1 (merged)
 
-## Phase 1 — Ingest (branch `phase-1-ingest`, in progress)
+## Phase 2 — Normalize + analytics (branch `phase-2-analytics`)
+Done (2026-10-22): `safetylens build` (complaints, complaint_docs, recalls, component_systems,
+vehicle_models, model_aliases; one transaction); templates complaint_count, top_components,
+monthly_trend (zero-filled in SQL), severity (per complaint), recalls_by_vehicle; golden tests with
+hand-computed expectations + plain-Python oracle on the real fixture; `make crosscheck` with
+`evals/crosscheck_vehicles.yaml` (owner-approved list). Gate: `make check` exit 0 (50 passed, 94%),
+`make dq` exit 0, `make crosscheck` 10/10 exact (0.00% diff).
+Findings: the API only answers to its own model names (`MODEL Y (All Variants)`), so crosscheck
+queries every API name starting with our model and filters on the returned productModel; API
+results include VIN and narrative, so only ODI numbers are cached.
+
+## Phase 1 — Ingest (merged, PR #2)
 Done: layouts verified against docs/data/CMPL.txt and RCL.txt (recalls have 29 fields, no PII);
 download (ETag / Last-Modified, atomic), position-based parser (drops PII), Parquet, DuckDB
 `complaints_raw` / `recalls_raw` / `ingest_runs`, `safetylens ingest|dq`, 25 tests.
@@ -29,11 +40,10 @@ Owner decisions (2026-10-21):
 `recalls_sample.txt` (200 rows), built by `scripts/make_fixtures.py`, read by `tests/ingest/test_real_sample.py`.
 
 ## Next up
-1. Owner removes the protected-files unlock; push `phase-1-ingest`, open PR, CI green, `/learn`
-2. Phase 2: `complaints` (one row per odino x component, prod_type V, MILES/VEH_SPEED 0 -> NULL,
-   YEARTXT 9999 -> NULL) and `complaint_docs` (one row per odino)
-3. Phase 2: `component_system` + model alias table (rapidfuzz, checked against the models API)
-4. Phase 2: SQL templates (top components, monthly trend, severity, recalls by vehicle) + `make crosscheck`
+1. Owner removes the protected-files unlock; `/phase-check 2`; push `phase-2-analytics`, PR, CI green, `/learn`
+2. Phase 3: DuckDB fts BM25 index over `complaint_docs.narrative`, filtered by vehicle/component
+3. Phase 3: bge-small-en-v1.5 embeddings (batched, resumable) + hybrid reciprocal rank fusion, `safetylens search`
+4. Phase 3: draft 60 labeled queries for `evals/retrieval_labels.yaml` (owner verifies), `make eval-retrieval`
 
 ## Non-blocking review notes
 - Makefile `check` duplicates `lint`/`typecheck` recipes; could be `check: lint typecheck` + pytest
@@ -62,7 +72,7 @@ Owner decisions (2026-10-21):
 |---|---|---|---|
 | 0 Scaffold | done (owner confirmed /hooks) | make check exit 0; CI green | 2026-10-21 |
 | 1 Ingest | done | make check, make dq, pytest -m idempotent exit 0; fixture committed | 2026-10-21 |
-| 2 Analytics | not started | – | – |
+| 2 Analytics | gates pass; /phase-check pending | make check, make dq exit 0; crosscheck 10/10 exact | 2026-10-22 |
 | 3 Search | not started | – | – |
 | 4 Answers | not started | – | – |
 | 5 Web app | not started | – | – |
