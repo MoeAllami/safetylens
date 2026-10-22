@@ -40,12 +40,19 @@ Owner decisions (2026-10-21):
 `recalls_sample.txt` (200 rows), built by `scripts/make_fixtures.py`, read by `tests/ingest/test_real_sample.py`.
 
 ## Next up
-1. Owner removes the protected-files unlock; `/phase-check 2`; push `phase-2-analytics`, PR, CI green, `/learn`
+1. Push `phase-2-analytics`, open PR, CI green, merge, `/learn` (`/phase-check 2` passed 2026-10-22)
 2. Phase 3: DuckDB fts BM25 index over `complaint_docs.narrative`, filtered by vehicle/component
 3. Phase 3: bge-small-en-v1.5 embeddings (batched, resumable) + hybrid reciprocal rank fusion, `safetylens search`
 4. Phase 3: draft 60 labeled queries for `evals/retrieval_labels.yaml` (owner verifies), `make eval-retrieval`
 
 ## Non-blocking review notes
+- Phase 2 review: build rollback path and the `crosscheck` CLI command are untested
+- Phase 2 review: dq_complaint_attrs_consistent omits fail_date, miles, veh_speed, state (also any_value'd)
+- Phase 2 review: recalls_by_vehicle ignores received_from/to silently; document or reject
+- Phase 2 review: VehicleFilter matches model_key only, not model_aliases (Phase 4 resolver will use aliases)
+- Phase 2 review: API cache age uses time.time(), not an injected clock; stale-cache path untested
+- Phase 2 review: add a dq check that consequence/remedy/manufacturer agree within a recall campaign
+- Phase 2 review: Python `\s` vs DuckDB RE2 `\s` in model_key; covered by test_python_model_key_matches_sql
 - Makefile `check` duplicates `lint`/`typecheck` recipes; could be `check: lint typecheck` + pytest
 - pre-commit ruff rev v0.8.6 is older than pinned ruff>=0.17.1; bump the rev to avoid format drift
 - Phase 1 review: parquet stats sidecar is not written atomically and bad JSON is not a cache miss (pipeline.py)
@@ -61,6 +68,9 @@ Owner decisions (2026-10-21):
 | Complaint rows (dev slice) | 625,137 | 2026-10-21 |
 | Distinct ODI (dev slice) | 430,187 | 2026-10-21 |
 | Recall rows / distinct campaigns (post-2010) | 246,253 / 15,332 | 2026-10-21 |
+| complaints / complaint_docs (vehicle, dev slice) | 616,578 / 428,507 | 2026-10-22 |
+| recalls (vehicle, campaign x vehicle x component) | 109,237 | 2026-10-22 |
+| Crosscheck vs live API (10 vehicles) | 10/10, max diff 0.00% | 2026-10-22 |
 | Embedding throughput (docs/s) | – | – |
 | Hybrid recall@10 | – | – |
 | Golden pass rate | – | – |
@@ -72,7 +82,7 @@ Owner decisions (2026-10-21):
 |---|---|---|---|
 | 0 Scaffold | done (owner confirmed /hooks) | make check exit 0; CI green | 2026-10-21 |
 | 1 Ingest | done | make check, make dq, pytest -m idempotent exit 0; fixture committed | 2026-10-21 |
-| 2 Analytics | gates pass; /phase-check pending | make check, make dq exit 0; crosscheck 10/10 exact | 2026-10-22 |
+| 2 Analytics | done (/phase-check PASS, 0 blocking) | make check, make dq exit 0; crosscheck 10/10 exact | 2026-10-22 |
 | 3 Search | not started | – | – |
 | 4 Answers | not started | – | – |
 | 5 Web app | not started | – | – |
