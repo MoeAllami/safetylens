@@ -13,6 +13,8 @@ import typer
 
 from safetylens import __version__
 from safetylens.analytics.templates import VehicleFilter
+from safetylens.answer import golden as golden_eval
+from safetylens.answer import runtime
 from safetylens.config import Settings
 from safetylens.crosscheck.crosscheck import crosscheck, format_table, load_vehicles
 from safetylens.crosscheck.nhtsa_api import NhtsaApi
@@ -161,6 +163,47 @@ def search_cmd(
             )
     if not hits:
         typer.echo("no matching complaints")
+
+
+@app.command()
+def ask(question: str) -> None:
+    """Answer a question about NHTSA complaints and recalls, with citations (uses the API)."""
+    settings = Settings()
+    llm = runtime.build_llm(settings, "ask")
+    with db.connect(settings.data_dir / DB_NAME, read_only=True) as con:
+        answer = runtime.build_engine(settings, con, llm).ask(question)
+    typer.echo(answer.text)
+    typer.echo(
+        f"\n[{answer.status}] citations: {', '.join(answer.citations) or 'none'} | "
+        f"cost ${answer.cost_usd:.4f} | {answer.latency_s:.1f}s"
+    )
+    if answer.first_draft_errors:
+        typer.echo(f"first draft rejected: {'; '.join(answer.first_draft_errors)}")
+    typer.echo(
+        "Complaints are unverified consumer reports filed with NHTSA. Counts are not defect rates."
+    )
+
+
+@app.command("eval")
+def eval_answers(
+    golden: Annotated[Path, typer.Option(help="golden questions")] = Path("evals/golden.yaml"),
+    report_dir: Annotated[Path, typer.Option(help="where the report goes")] = Path("evals/reports"),
+    ids: Annotated[str | None, typer.Option(help="comma-separated item ids to run")] = None,
+) -> None:
+    """Run the golden questions with the real API; exit 1 unless D5/D6/D7/D9 hold."""
+    settings = Settings()
+    items = golden_eval.load_golden(golden)
+    if ids:
+        wanted = set(ids.split(","))
+        items = [i for i in items if i.id in wanted]
+    llm = runtime.build_llm(settings, "eval")
+    with db.connect(settings.data_dir / DB_NAME, read_only=True) as con:
+        report = golden_eval.run_golden(runtime.build_engine(settings, con, llm), items)
+        path = golden_eval.write_markdown(report, report_dir)
+    typer.echo(golden_eval.format_summary(report))
+    typer.echo(f"report: {path}")
+    if not report.passed():
+        raise typer.Exit(1)
 
 
 @app.command("eval-retrieval")
