@@ -11,10 +11,8 @@ from typing import Annotated
 import httpx
 import typer
 
-from safetylens import __version__
+from safetylens import __version__, cli_answer, logs
 from safetylens.analytics.templates import VehicleFilter
-from safetylens.answer import golden as golden_eval
-from safetylens.answer import golden_report, runtime
 from safetylens.config import Settings
 from safetylens.crosscheck.crosscheck import crosscheck, format_table, load_vehicles
 from safetylens.crosscheck.nhtsa_api import NhtsaApi
@@ -47,6 +45,13 @@ class SliceName(StrEnum):
 @app.callback()
 def main() -> None:
     """Keep Typer in multi-command mode so subcommands stay subcommands."""
+    logs.configure()
+
+
+app.command()(cli_answer.ask)
+app.command()(cli_answer.serve)
+app.command("cache-clear")(cli_answer.cache_clear)
+app.command("eval")(cli_answer.eval_answers)
 
 
 @app.command()
@@ -60,12 +65,18 @@ def ingest(
     slice_name: Annotated[
         SliceName, typer.Option("--slice", help="dev = 2020+, full = everything")
     ] = SliceName.dev,
+    offline: Annotated[
+        bool, typer.Option(help="use the zips already in data/raw (pinned snapshot, no HTTP)")
+    ] = False,
 ) -> None:
     """Download NHTSA files, drop personal data, and load them into DuckDB."""
     settings = Settings()
-    timeout = httpx.Timeout(30.0, read=120.0)
-    with httpx.Client(timeout=timeout, follow_redirects=True) as client:
-        reports, con = run_ingest(settings, slice_name.value, client)
+    if offline:
+        reports, con = run_ingest(settings, slice_name.value, None)
+    else:
+        timeout = httpx.Timeout(30.0, read=120.0)
+        with httpx.Client(timeout=timeout, follow_redirects=True) as client:
+            reports, con = run_ingest(settings, slice_name.value, client)
     with con:
         for kind in KINDS:
             if any(r.source.kind == kind for r in reports):
@@ -163,68 +174,6 @@ def search_cmd(
             )
     if not hits:
         typer.echo("no matching complaints")
-
-
-@app.command()
-def ask(question: str) -> None:
-    """Answer a question about NHTSA complaints and recalls, with citations (uses the API)."""
-    settings = Settings()
-    llm = runtime.build_llm(settings, "ask")
-    with db.connect(settings.data_dir / DB_NAME, read_only=True) as con:
-        answer = runtime.build_engine(settings, con, llm).ask(question)
-    typer.echo(answer.text)
-    typer.echo(
-        f"\n[{answer.status}] citations: {', '.join(answer.citations) or 'none'} | "
-        f"cost ${answer.cost_usd:.4f} | {answer.latency_s:.1f}s"
-    )
-    if answer.first_draft_errors:
-        typer.echo(f"first draft rejected: {'; '.join(answer.first_draft_errors)}")
-    typer.echo(
-        "Complaints are unverified consumer reports filed with NHTSA. Counts are not defect rates."
-    )
-
-
-@app.command()
-def serve(
-    port: Annotated[int, typer.Option(help="port on 127.0.0.1")] = 8000,
-) -> None:
-    """Run the web app on localhost (uses the API for answers; record pages are offline)."""
-    import uvicorn
-
-    from safetylens.web.app import create_app
-
-    settings = Settings()
-    llm = runtime.build_llm(settings, "ask")
-    with db.connect(settings.data_dir / DB_NAME, read_only=True) as con:
-        # Built once, so the embedder and reranker are loaded before the first question.
-        engine = runtime.build_engine(settings, con, llm)
-        uvicorn.run(create_app(con, engine), host="127.0.0.1", port=port, log_level="warning")
-
-
-@app.command("eval")
-def eval_answers(
-    golden: Annotated[Path, typer.Option(help="golden questions")] = Path("evals/golden.yaml"),
-    report_dir: Annotated[Path, typer.Option(help="where the report goes")] = Path("evals/reports"),
-    ids: Annotated[str | None, typer.Option(help="comma-separated item ids to run")] = None,
-) -> None:
-    """Run the golden questions with the real API; exit 1 unless D5/D6/D7/D9 hold."""
-    settings = Settings()
-    items = golden_eval.load_golden(golden)
-    if ids:
-        wanted = set(ids.split(","))
-        items = [i for i in items if i.id in wanted]
-    llm = runtime.build_llm(settings, "eval")
-    with db.connect(settings.data_dir / DB_NAME, read_only=True) as con:
-        report = golden_eval.run_golden(runtime.build_engine(settings, con, llm), items)
-        path = golden_report.write_markdown(report, report_dir)
-        # A subset run must not overwrite the full run's review the owner may be spot-checking.
-        review_dir = settings.data_dir / "eval" / ("subset" if ids else "")
-        review = golden_report.write_judge_review(report, review_dir)
-    typer.echo(golden_report.format_summary(report))
-    typer.echo(f"report: {path}")
-    typer.echo(f"judge verdicts for spot-checking (git-ignored): {review}")
-    if not report.passed():
-        raise typer.Exit(1)
 
 
 @app.command("eval-retrieval")

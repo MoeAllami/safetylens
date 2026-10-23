@@ -1,0 +1,17 @@
+# Keep secrets, data and local caches out of the build context.
+.env
+data/
+.venv/
+.git/
+**/__pycache__/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+.claude/
+.vscode/
+evals/
+tests/
+docs/
+scripts/

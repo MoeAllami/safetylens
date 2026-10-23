@@ -65,3 +65,14 @@ One entry per phase, written in your own words (the `/learn` skill helps).
   - Structured outputs: https://docs.claude.com/en/docs/build-with-claude/structured-outputs
   - Reducing hallucinations / grounding: https://docs.claude.com/en/docs/test-and-evaluate/strengthen-guardrails/reduce-hallucinations
   - LLM-as-a-judge (Zheng et al., 2023): https://arxiv.org/abs/2306.05685
+
+### 2026-10-22 — Phase 5
+- **Concepts:** HTMX partials with a full-page fallback (`web/routes_ask.py::ask`, `HX-Request` header, `templates/_answer.html` vs `index.html`); escape model output first, then add only the markup you allow (`web/render.py::answer_html`, `templates/_chart.html` `tojson | forceescape`); measuring tail latency with per-stage timings and the noise in p95 of 40 (`answer/pipeline.py::_timed`, `answer/golden.py::GoldenReport.stage_latency`).
+- **Q&A:**
+  - *What breaks if `/ask` always returned the partial and ignored `HX-Request`?* If htmx fails to load or JS is off, the form posts normally and the browser shows a bare fragment: no layout, no navigation, and no disclaimer footer, which breaks D15. `test_without_htmx_the_whole_page_comes_back` catches it; the e2e test does not, because its browser runs JavaScript. A partial is an optimization; the plain request must still get a whole, compliant page.
+  - *Why escape before linking citations, when the validator already checked the answer?* The validator checks numbers and citation ids, not markup: "<img src=x onerror=...> brakes [11000001]" passes it and would run script in the reader's browser if rendered raw or linked before escaping. `test_model_text_is_escaped` and `test_markup_from_the_model_is_escaped` catch that. The chart spec has the same risk in an HTML attribute (a `"` in a component name ends the attribute without `forceescape`), and no test covers a quote inside a chart value yet. Treat model text like user input: escape everything, then allow-list.
+  - *Why was the 100-word prompt slower (p95 10.1 s) than the 120-word one (8.1 s)?* p95 of 40 answers is set by the 2 slowest; one retry (~3-4 s more) or one slow API reply moves it by seconds, and identical code gave writer_1 p95 from 5.8 to 7.1 s. The effect of 20 fewer words (~0.3 s) is smaller than that run-to-run noise. Nothing automated catches this: the report shows one p95 per run, so only repeated runs or the per-stage table show the spread. Compare distributions over repeated runs, not one tail number.
+- **Read next:**
+  - htmx documentation (hx-post, hx-target, HX-Request): https://htmx.org/docs/
+  - OWASP XSS prevention: https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html
+  - The Tail at Scale (Dean and Barroso, 2013): https://research.google/pubs/the-tail-at-scale/

@@ -90,4 +90,5 @@ class Answer(BaseModel):
     writer_calls: int = 0
     cost_usd: float = 0.0
     latency_s: float = 0.0
+    cached: bool = False  # served from the answer cache (verified when first written)
     timings: dict[str, float] = {}  # seconds per stage (planner, sql, retrieve, writer_1, ...)

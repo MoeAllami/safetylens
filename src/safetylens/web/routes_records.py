@@ -5,8 +5,12 @@ against the record itself and follow it to NHTSA. Each page reads through its ow
 because a DuckDB connection must not be shared across request threads.
 """
 
+import datetime as dt
+from urllib.parse import quote
+
+import duckdb
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 
 from safetylens.analytics import templates as t
 from safetylens.answer.models import VehicleRef
@@ -17,6 +21,7 @@ from safetylens.web.state import templates
 
 router = APIRouter()
 VEHICLE_TOP_N = 10
+FIRST_MODEL_YEAR = 1949  # oldest model year in NHTSA's files
 
 
 def _not_found(request: Request, message: str, options: list[str] | None = None) -> HTMLResponse:
@@ -27,7 +32,8 @@ def _not_found(request: Request, message: str, options: list[str] | None = None)
 
 @router.get("/complaint/{odino}", response_class=HTMLResponse)
 def complaint(request: Request, odino: str) -> HTMLResponse:
-    record = records.complaint(request.app.state.con.cursor(), odino)
+    with request.app.state.con.cursor() as cur:
+        record = records.complaint(cur, odino)
     if record is None:
         return _not_found(request, "No complaint with that ODI number.")
     return templates(request).TemplateResponse(request, "complaint.html", {"c": record})
@@ -35,15 +41,36 @@ def complaint(request: Request, odino: str) -> HTMLResponse:
 
 @router.get("/recall/{campno}", response_class=HTMLResponse)
 def recall(request: Request, campno: str) -> HTMLResponse:
-    record = records.recall(request.app.state.con.cursor(), campno)
+    with request.app.state.con.cursor() as cur:
+        record = records.recall(cur, campno)
     if record is None:
         return _not_found(request, "No recall campaign with that number.")
     return templates(request).TemplateResponse(request, "recall.html", {"r": record})
 
 
-@router.get("/vehicle/{make}/{model}/{year}", response_class=HTMLResponse)
-def vehicle(request: Request, make: str, model: str, year: int) -> HTMLResponse:
-    con = request.app.state.con.cursor()
+def vehicle_path(make: str, model: str, year: int) -> str:
+    """The year comes before the model so a model name containing "/" still routes."""
+    return f"/vehicle/{quote(make, safe='')}/{year}/{quote(model, safe='/')}"
+
+
+# Registered first: the int convertor only matches digits, so /vehicle/FORD/F-150/2022 falls
+# through to the PLAN-style route below, which redirects here.
+@router.get("/vehicle/{make}/{year:int}/{model:path}", response_class=HTMLResponse)
+def vehicle(request: Request, make: str, year: int, model: str) -> HTMLResponse:
+    if not FIRST_MODEL_YEAR <= year <= dt.date.today().year + 2:
+        return _not_found(request, f"No model year {year} in the NHTSA data.")
+    with request.app.state.con.cursor() as cur:
+        return _vehicle_page(request, cur, make, model, year)
+
+
+@router.get("/vehicle/{make}/{model}/{year:int}")
+def vehicle_plan_url(make: str, model: str, year: int) -> RedirectResponse:
+    return RedirectResponse(vehicle_path(make, model, year), status_code=301)
+
+
+def _vehicle_page(
+    request: Request, con: duckdb.DuckDBPyConnection, make: str, model: str, year: int
+) -> HTMLResponse:
     res = resolve(con, VehicleRef(make=make, model=model, year_from=year, year_to=year))
     if res.status != "ok" or res.vehicle is None:
         return _not_found(request, "Which vehicle did you mean?", res.options)

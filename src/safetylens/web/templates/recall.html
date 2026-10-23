@@ -21,7 +21,7 @@
   <tbody>
   {% for v in r.vehicles %}
     <tr><td>{{ v.make }}</td><td>{{ v.model }}</td>
-        <td>{% if v.model_year %}<a href="/vehicle/{{ v.make | urlencode }}/{{ v.model | urlencode }}/{{ v.model_year }}">{{ v.model_year }}</a>{% else %}–{% endif %}</td>
+        <td>{% if v.model_year %}<a href="{{ vehicle_path(v.make, v.model, v.model_year) }}">{{ v.model_year }}</a>{% else %}–{% endif %}</td>
         <td>{{ v.components | join("; ") }}</td></tr>
   {% endfor %}
   </tbody>

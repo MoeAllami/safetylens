@@ -8,8 +8,8 @@ SELECT
     any_value(defect_summary) AS defect_summary,
     any_value(consequence) AS consequence,
     any_value(remedy) AS remedy,
-    bool_or(do_not_drive) AS do_not_drive,
-    bool_or(park_outside) AS park_outside
+    coalesce(bool_or(do_not_drive), false) AS do_not_drive,
+    coalesce(bool_or(park_outside), false) AS park_outside
 FROM recalls
 WHERE campno = $campno
 GROUP BY campno

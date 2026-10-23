@@ -6,6 +6,7 @@
   {% else %}
     {{ answer_html }}
   {% endif %}
+  {% if answer.cached %}<p><small>From the answer cache: verified earlier against the same data.</small></p>{% endif %}
   {% if answer.status == "fallback_template" %}
     <p><small>The written answer could not be verified, so this summary was built directly from the records.</small></p>
   {% endif %}

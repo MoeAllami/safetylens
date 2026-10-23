@@ -1,3 +1,4 @@
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -29,7 +30,11 @@ def fake_runtime(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> FakeLLM:
     con.close()
     llm = FakeLLM()
     monkeypatch.setattr(runtime, "build_llm", lambda *_: llm)
-    monkeypatch.setattr(runtime, "build_engine", lambda _s, con, llm_: engine(con, llm_))
+    monkeypatch.setattr(
+        runtime,
+        "build_engine",
+        lambda _s, con, llm_, cache=None: replace(engine(con, llm_), cache=cache),
+    )
     return llm
 
 
@@ -40,6 +45,15 @@ def test_ask_prints_answer_status_and_disclaimer(fake_runtime: FakeLLM) -> None:
     assert "owners report brake failure [11000001]" in result.output
     assert "[answered] citations: 11000001" in result.output
     assert "Counts are not defect rates." in result.output
+
+
+def test_second_identical_ask_is_served_from_the_cache(fake_runtime: FakeLLM) -> None:
+    fake_runtime.script("planner", plan(), plan()).script("writer", GOOD)
+    first = runner.invoke(app, ["ask", "brake complaints for 2022 F-150?"])
+    second = runner.invoke(app, ["ask", "F-150 2022 brakes?"])
+    assert "[answered] citations" in first.output
+    assert "[answered, cached] citations: 11000001" in second.output, second.output
+    assert [role for role, *_ in fake_runtime.calls] == ["planner", "writer", "planner"]
 
 
 def test_eval_runs_items_writes_report_and_gates(fake_runtime: FakeLLM, tmp_path: Path) -> None:

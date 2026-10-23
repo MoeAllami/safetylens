@@ -10,6 +10,7 @@ import threading
 import time
 from collections.abc import Iterator
 
+import playwright.sync_api as playwright
 import pytest
 import uvicorn
 from web_helpers import GOOD, PLAN, web_db, web_engine
@@ -17,8 +18,8 @@ from web_helpers import GOOD, PLAN, web_db, web_engine
 from safetylens.answer.llm import FakeLLM
 from safetylens.web.app import create_app
 
+# Imported directly, not importorskip: a missing Playwright must fail the D11 gate, not skip it.
 pytestmark = pytest.mark.e2e
-playwright = pytest.importorskip("playwright.sync_api")
 
 
 def _free_port() -> int:

@@ -111,7 +111,7 @@ def test_recall_page_accepts_lowercase_and_links_out(con: duckdb.DuckDBPyConnect
     assert page.status_code == 200
     assert "BRAKE LINE MAY LEAK" in page.text or "Recall 22V123000" in page.text
     assert "https://www.nhtsa.gov/recalls?nhtsaId=22V123000" in page.text
-    assert "/vehicle/FORD/F-150/2022" in page.text
+    assert "/vehicle/FORD/2022/F-150" in page.text
     assert client(con).get("/recall/22V999999").status_code == 404
     assert client(con).get("/recall/not-a-campaign").status_code == 404
 

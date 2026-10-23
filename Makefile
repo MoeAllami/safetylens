@@ -7,7 +7,7 @@ define stub
 endef
 
 .PHONY: help install lint fmt typecheck test test-fast check \
-	data-dev data-full dq crosscheck eval-retrieval eval e2e serve acceptance
+	data-dev data-full dq crosscheck eval-retrieval eval e2e serve docs acceptance
 
 help:
 	@grep -E '^[a-z-]+:' Makefile | cut -d: -f1 | sort
@@ -39,8 +39,9 @@ check:
 	uv run mypy --strict src
 	uv run pytest --cov --cov-fail-under=80
 
+# INGEST_FLAGS=--offline rebuilds from the zips already in data/raw (used by make acceptance).
 data-dev:
-	uv run safetylens ingest --slice dev
+	uv run safetylens ingest --slice dev $(INGEST_FLAGS)
 	uv run safetylens build
 	uv run safetylens index
 
@@ -67,5 +68,8 @@ e2e:
 serve:
 	uv run safetylens serve
 
+docs:
+	uv run python scripts/check_docs.py
+
 acceptance:
-	$(call stub,acceptance,6)
+	bash scripts/fresh_clone_check.sh
