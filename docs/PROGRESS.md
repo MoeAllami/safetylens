@@ -1,6 +1,6 @@
 # Progress
 
-**Current phase:** 6 — Harden (blocking fixed; acceptance PASS on 1e7334d; /phase-check 6 re-run pending)
+**Current phase:** 6 — Harden: done (/phase-check PASS; D8, D12 accepted misses). v1 complete; PR #7 to merge
 **Branch:** phase-6-harden
 
 ## Done (2026-10-21)
@@ -166,12 +166,21 @@ run's draft errors). 200 tests pass.
 D1 616 s; D5 100%, D6 100%, D7 99%, D9 98% + 6/6, D12 ACCEPTED p95 8.2 s, D13 $0.0115/question, D8 ACCEPTED 0.777,
 D10 200 passed, D11 2 passed, D14/D15 PASS. CI green on 1e7334d (check, docker, e2e, gitleaks).
 
-## Next up
-1. Owner: re-run `/phase-check 6`
-2. Mark PR #7 ready, merge, `/learn`
+`/phase-check 6` re-run (2026-10-23): **PASS**. `make acceptance` on 31aeb78 exit 0: D1 613 s; D2-D4 PASS (crosscheck
+10/10 within 2%); D5 100%, D6 100%, D7 98%, D9 90% + 6/6; D8 ACCEPTED 0.777; D10 200 passed; D11 2 passed;
+D12 ACCEPTED p95 10.8 s (p95 range across full runs now 8.1-10.8 s, wider than the 8.1-10.1 s in
+accepted_misses.yaml); D13 $0.0114/question; D14, D15 PASS. Reviewer: 0 blocking (both earlier items closed).
+
+## Next up (v1 done; optional follow-ups)
+1. Mark PR #7 ready, merge, `/learn` for Phase 6
+2. Owner: decide whether the D12 acceptance still holds at p95 up to 10.8 s (update accepted_misses.yaml's reason,
+   or work on latency: streaming the answer, a smaller writer payload, prompt caching)
+3. Phase 6 non-blocking notes below (snapshot sha256 committed, HTMX error swaps, uvicorn tracebacks, cache test)
 3. After v1: the remaining Phase 6 non-blocking notes (snapshot sha256 committed, HTMX error swaps, uvicorn tracebacks)
 
 ## Non-blocking review notes
+- Phase 6 re-review: test_real_package_is_hashed doesn't prove files were hashed (empty glob = constant version);
+  cached fallback answers hide why the writer was rejected; data_version misses text-only NHTSA edits (undocumented)
 - Phase 6 review: data_version misses recall text/index rebuilds; pinned snapshot sha256 not committed;
   uvicorn still logs tracebacks (str(exc)) to stderr; HTMX drops 4xx/5xx partials by default; redaction list misses
   cdescr/search_text/query/evidence; D15 reads only the first CI run; D9 shown twice; empty accepted_misses.yaml
@@ -231,7 +240,7 @@ D10 200 passed, D11 2 passed, D14/D15 PASS. CI green on 1e7334d (check, docker, 
 | 3 Search | done with D8 miss (owner accepted) | rerank recall@10 test 0.777 (< 0.80) | 2026-10-22 |
 | 4 Answers | done (/phase-check PASS, 0 blocking) | make check 140 passed; make eval PASS: D5 100%, D6 100%, D7 98%, D9 92%, 6/6 | 2026-10-22 |
 | 5 Web app | done with D12 miss (owner accepted); /phase-check: gates 1-2 exit 0, p95 gate missed, 0 blocking | make check 167 passed; make e2e 2 passed; p95 9.8 s (> 8 s) | 2026-10-22 |
-| 6 Harden | /phase-check FAIL: 2 blocking (acceptance report fallback, cache version) | make acceptance exit 0 on 4321d60 | 2026-10-22 |
+| 6 Harden | done (/phase-check PASS, 0 blocking; D8, D12 accepted) | make acceptance exit 0 on 31aeb78 (D1-D15) | 2026-10-23 |
 
 ## Blockers / decisions needed
 - OS decided: native Windows with Git Bash; uv, make, jq, gh installed via winget (restart the terminal so PATH picks them up)
