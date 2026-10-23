@@ -166,7 +166,7 @@ reviewer found 2 blocking issues:
 - Phase 6 review: data_version misses recall text/index rebuilds; pinned snapshot sha256 not committed;
   uvicorn still logs tracebacks (str(exc)) to stderr; HTMX drops 4xx/5xx partials by default; redaction list misses
   cdescr/search_text/query/evidence; D15 reads only the first CI run; D9 shown twice; empty accepted_misses.yaml
-  crashes check_docs; .dockerignore lacks .env.*; base image not pinned by digest; README \"Other checks\" hand-written
+  crashes check_docs; .dockerignore lacks .env.*; base image not pinned by digest; README "Other checks" hand-written
 - Phase 5 review: record-page cursors never closed; vehicle links break for model names with "/"; unbounded year
   param (huge -> 500, 0 -> all-years label); e2e importorskip lets make e2e pass without Playwright
 - Phase 5 review: NULL do_not_drive/park_outside would 500 the recall page; complaint NHTSA link is raw API JSON;
