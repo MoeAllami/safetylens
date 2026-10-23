@@ -1,6 +1,6 @@
 # Progress
 
-**Current phase:** 6 — Harden (make acceptance PASS; /phase-check 6 pending)
+**Current phase:** 6 — Harden (/phase-check 6 FAIL: 2 blocking; fixes next)
 **Branch:** phase-6-harden
 
 ## Done (2026-10-21)
@@ -148,12 +148,25 @@ the clone's local origin). Owner decision: acceptance pins the snapshot (`ingest
 (crosscheck 10/10 within 2%); D5 100%, D6 100%, D7 97%, D9 88% + refusals 6/6; D8 ACCEPTED 0.777; D10 194 passed;
 D11 2 passed; D12 ACCEPTED p95 8.1 s (p50 4.7 s); D13 $0.0110/question; D14 PASS; D15 PASS (CI green incl. gitleaks).
 
+`/phase-check 6` (2026-10-22): **FAIL**. Gate `make acceptance` on 4321d60 exited 0 (ACCEPTANCE PASS: D5 100%,
+D6 100%, D7 97%, D9 88% + 6/6, D12 ACCEPTED p95 8.1 s, D13 $0.0112/question, D8 ACCEPTED 0.777, the rest PASS), but the
+reviewer found 2 blocking issues:
+1. fresh_clone_check.sh ignores eval/eval-retrieval exit codes and reads the newest report, which in a clone can be
+   the committed one: a crashed eval (no key, API down) would be graded PASS from an old report
+2. the answer cache version covers prompts + writer only: a fix to SQL templates, compute, validator, template or
+   retrieval settings keeps serving old cached answers (docstring claims it can't)
+
 ## Next up
-1. Owner: `/phase-check 6`; then mark PR #7 ready, merge, `/learn`
-2. Optional after v1: refresh golden facts when moving to a newer NHTSA snapshot (owner unlocks golden.yaml)
-3. Optional: streaming the written answer (perceived latency), Haiku-first writer with Sonnet judge-gated retry
+1. Fix blocking 1: clear evals/reports in the clone before the evals and FAIL when a step writes no new report
+2. Fix blocking 2: cache version includes package version + hash of store/queries/*.sql and the answer/search
+   source files + retrieval settings; key uses `search_text or question` (non-blocking 1); clear stale draft errors
+3. Re-run `make acceptance`, then `/phase-check 6`, mark PR #7 ready, merge, `/learn`
 
 ## Non-blocking review notes
+- Phase 6 review: data_version misses recall text/index rebuilds; pinned snapshot sha256 not committed;
+  uvicorn still logs tracebacks (str(exc)) to stderr; HTMX drops 4xx/5xx partials by default; redaction list misses
+  cdescr/search_text/query/evidence; D15 reads only the first CI run; D9 shown twice; empty accepted_misses.yaml
+  crashes check_docs; .dockerignore lacks .env.*; base image not pinned by digest; README \"Other checks\" hand-written
 - Phase 5 review: record-page cursors never closed; vehicle links break for model names with "/"; unbounded year
   param (huge -> 500, 0 -> all-years label); e2e importorskip lets make e2e pass without Playwright
 - Phase 5 review: NULL do_not_drive/park_outside would 500 the recall page; complaint NHTSA link is raw API JSON;
@@ -209,7 +222,7 @@ D11 2 passed; D12 ACCEPTED p95 8.1 s (p50 4.7 s); D13 $0.0110/question; D14 PASS
 | 3 Search | done with D8 miss (owner accepted) | rerank recall@10 test 0.777 (< 0.80) | 2026-10-22 |
 | 4 Answers | done (/phase-check PASS, 0 blocking) | make check 140 passed; make eval PASS: D5 100%, D6 100%, D7 98%, D9 92%, 6/6 | 2026-10-22 |
 | 5 Web app | done with D12 miss (owner accepted); /phase-check: gates 1-2 exit 0, p95 gate missed, 0 blocking | make check 167 passed; make e2e 2 passed; p95 9.8 s (> 8 s) | 2026-10-22 |
-| 6 Harden | make acceptance PASS (D8, D12 accepted); phase-check pending | fresh clone 6980e47: D1-D15 | 2026-10-22 |
+| 6 Harden | /phase-check FAIL: 2 blocking (acceptance report fallback, cache version) | make acceptance exit 0 on 4321d60 | 2026-10-22 |
 
 ## Blockers / decisions needed
 - OS decided: native Windows with Git Bash; uv, make, jq, gh installed via winget (restart the terminal so PATH picks them up)
