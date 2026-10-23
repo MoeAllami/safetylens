@@ -1,6 +1,6 @@
 # Progress
 
-**Current phase:** 6 — Harden (/phase-check 6 FAIL: 2 blocking; fixes next)
+**Current phase:** 6 — Harden (blocking fixed; acceptance PASS on 1e7334d; /phase-check 6 re-run pending)
 **Branch:** phase-6-harden
 
 ## Done (2026-10-21)
@@ -162,8 +162,12 @@ answer/, search/, analytics/ sources and store/queries/*.sql + planner/writer mo
 rerank depth); also non-blocking 1 (key uses the question when search_text is empty) and 7 (cache hits drop the first
 run's draft errors). 200 tests pass.
 
+`make acceptance` on 1e7334d (2026-10-23, committed reports removed in the clone, so these are fresh): ACCEPTANCE PASS.
+D1 616 s; D5 100%, D6 100%, D7 99%, D9 98% + 6/6, D12 ACCEPTED p95 8.2 s, D13 $0.0115/question, D8 ACCEPTED 0.777,
+D10 200 passed, D11 2 passed, D14/D15 PASS. CI green on 1e7334d (check, docker, e2e, gitleaks).
+
 ## Next up
-1. Re-run `make acceptance` on the fix commit, then `/phase-check 6`
+1. Owner: re-run `/phase-check 6`
 2. Mark PR #7 ready, merge, `/learn`
 3. After v1: the remaining Phase 6 non-blocking notes (snapshot sha256 committed, HTMX error swaps, uvicorn tracebacks)
 
