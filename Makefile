@@ -7,7 +7,7 @@ define stub
 endef
 
 .PHONY: help install lint fmt typecheck test test-fast check \
-	data-dev data-full dq crosscheck eval-retrieval eval e2e serve acceptance
+	data-dev data-full dq crosscheck eval-retrieval eval e2e serve docs acceptance
 
 help:
 	@grep -E '^[a-z-]+:' Makefile | cut -d: -f1 | sort
@@ -67,5 +67,8 @@ e2e:
 serve:
 	uv run safetylens serve
 
+docs:
+	uv run python scripts/check_docs.py
+
 acceptance:
-	$(call stub,acceptance,6)
+	bash scripts/fresh_clone_check.sh

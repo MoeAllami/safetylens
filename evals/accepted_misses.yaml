@@ -1,0 +1,11 @@
+# Definition-of-done targets the owner decided to accept as missed (see docs/PROGRESS.md).
+# make acceptance and scripts/check_docs.py report these as ACCEPTED, never as PASS.
+# Adding an entry is the owner's decision, not a way to make a check pass.
+D8:
+  decided: 2026-10-22
+  target: rerank recall@10 on the test split >= 0.80
+  reason: best measured 0.777 (hybrid 0.770); owner accepted after the reranker was added in Phase 3
+D12:
+  decided: 2026-10-22
+  target: p95 latency < 8 s (warm, dev slice)
+  reason: full runs 8.1-10.1 s; the tail is API response-time variance; a Haiku writer was faster but failed D7/D9
