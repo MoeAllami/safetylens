@@ -3,8 +3,12 @@
 #
 # Why a fresh clone: it catches anything that only works on this machine (an untracked file, a
 # stale venv, a hand-made table). The clone gets only what a new user would add themselves: the
-# raw NHTSA zips (still revalidated against NHTSA on ingest), .env, and the spend ledger so daily
-# caps keep counting. Costs about $1 (one golden eval) and takes roughly 25-40 minutes.
+# raw NHTSA zips, .env, and the spend ledger so daily caps keep counting. Costs about $1 (one
+# golden eval) and takes roughly 25-40 minutes.
+#
+# Why ingest --offline: NHTSA updates its files daily, and the golden facts were computed from a
+# fixed snapshot, so acceptance rebuilds that snapshot (checksums verified) and tests the code, not
+# today's data. Freshness is still checked: D4 compares our counts with the live NHTSA API.
 #
 # Targets in evals/accepted_misses.yaml are reported as ACCEPTED, never PASS. Exit 0 only if
 # nothing FAILs.
@@ -18,6 +22,8 @@ if [[ -n "$(git status --porcelain)" ]]; then
   exit 2
 fi
 SHA="$(git rev-parse HEAD)"
+# Asked here, in the real checkout: the clone's origin is a local path that gh cannot map to GitHub.
+REPO="$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null || true)"
 DEST="${SAFETYLENS_ACCEPTANCE_DIR:-$(mktemp -d)}/safetylens"
 LOGS="$DEST.logs"
 rm -rf "$DEST" "$LOGS"
@@ -55,10 +61,15 @@ stop() {  # kill a background process and its children (uv starts python as a ch
   kill "$1" 2>/dev/null; wait "$1" 2>/dev/null
 }
 latest() { ls "evals/reports/$1"-*.md 2>/dev/null | sort | tail -1; }
+number() { [[ "$1" =~ ^[0-9]+(\.[0-9]+)?$ ]]; }  # a value that failed to parse is never a PASS
+
+# D14 first: the committed README must match the committed reports (the eval below writes new ones).
+if step docs make docs; then record D14 PASS "README sections, links, GIF, results table"
+else record D14 FAIL "$(grep FAIL "$LOGS/docs.log" | head -3 | tr '\n' ' ')"; fi
 
 # D1: one-command setup on a clean checkout, then the app serves pages.
 setup_start=$SECONDS
-if step sync make install && step data make data-dev; then
+if step sync make install && step data make data-dev INGEST_FLAGS=--offline; then
   setup_s=$((SECONDS - setup_start))
   PORT=8765
   uv run safetylens serve --port "$PORT" >"$LOGS/serve.log" 2>&1 &
@@ -97,8 +108,8 @@ report="$(latest answers)"
 metric() { grep -E "^$1" "$report" | head -1 | grep -oE "$2" | head -1; }
 check_metric() {  # id, summary line name, awk condition on $v
   local v; v="$(metric "$2" '[0-9.]+')"
-  if [[ -n "$v" ]] && awk -v v="$v" "BEGIN{exit !($3)}"; then record "$1" PASS "$2 $v"
-  elif [[ -n "$v" ]] && accepted "$1"; then record "$1" ACCEPTED "$2 $v (evals/accepted_misses.yaml)"
+  if number "$v" && awk -v v="$v" "BEGIN{exit !($3)}"; then record "$1" PASS "$2 $v"
+  elif number "$v" && accepted "$1"; then record "$1" ACCEPTED "$2 $v (evals/accepted_misses.yaml)"
   else record "$1" FAIL "$2 ${v:-missing}"; fi
 }
 if [[ -n "$report" ]]; then
@@ -112,8 +123,8 @@ if [[ -n "$report" ]]; then
   cost="$(metric 'mean cost' '[$][0-9.]+')"
   if [[ -n "$cost" ]]; then record D13 PASS "mean cost $cost/question; caps unit-tested"
   else record D13 FAIL "mean cost missing"; fi
-  p95="$(grep -E '^latency p50 / p95' "$report" | sed -E 's#.*/ ([0-9.]+)s$##')"
-  if [[ -z "$p95" ]]; then record D12 FAIL "p95 missing"
+  p95="$(grep -E '^latency p50 / p95' "$report" | grep -oE '[0-9.]+s$' | tr -d s)"
+  if ! number "$p95"; then record D12 FAIL "p95 missing or unreadable: '$p95'"
   elif awk -v v="$p95" 'BEGIN{exit !(v < 8)}'; then record D12 PASS "p95 ${p95} s"
   elif accepted D12; then record D12 ACCEPTED "p95 ${p95} s (target < 8 s; evals/accepted_misses.yaml)"
   else record D12 FAIL "p95 ${p95} s"; fi
@@ -125,7 +136,7 @@ fi
 step retrieval make eval-retrieval
 rreport="$(latest retrieval)"
 recall="$(grep -E '^rerank ' "$rreport" | awk '{print $4}')"
-if [[ -z "$recall" ]]; then record D8 FAIL "no retrieval report (see $LOGS/retrieval.log)"
+if ! number "$recall"; then record D8 FAIL "no readable retrieval report (see $LOGS/retrieval.log)"
 elif awk -v v="$recall" 'BEGIN{exit !(v >= 0.80)}'; then record D8 PASS "rerank recall@10 test $recall"
 elif accepted D8; then record D8 ACCEPTED "rerank recall@10 test $recall (target 0.80; evals/accepted_misses.yaml)"
 else record D8 FAIL "rerank recall@10 test $recall"; fi
@@ -136,15 +147,11 @@ else record D10 FAIL "see $LOGS/check.log"; fi
 
 # D11 (and the D15 disclaimer assertion): the browser test.
 uv run playwright install chromium >"$LOGS/playwright.log" 2>&1
-if step e2e make e2e; then record D11 PASS "$(tail -1 "$LOGS/e2e.log")"
+if step e2e make e2e; then record D11 PASS "$(grep -E 'passed' "$LOGS/e2e.log" | tail -1)"
 else record D11 FAIL "see $LOGS/e2e.log"; fi
 
-# D14: documentation.
-if step docs make docs; then record D14 PASS "README sections, links, GIF, results table"
-else record D14 FAIL "$(grep FAIL "$LOGS/docs.log" | head -3 | tr '\n' ' ')"; fi
-
 # D15: no secrets in the repo, .env ignored, disclaimer in the UI (e2e), gitleaks green in CI.
-ci="$(gh run list --commit "$SHA" --json conclusion,status --jq '.[0].conclusion' 2>/dev/null || true)"
+ci="$(gh run list -R "$REPO" --commit "$SHA" --json conclusion --jq '.[0].conclusion' 2>/dev/null || true)"
 if [[ -z "$(git ls-files .env)" ]] && git check-ignore -q .env && [[ "$ci" == success ]]; then
   record D15 PASS ".env ignored and untracked; CI (incl. gitleaks) green for $SHA"
 else

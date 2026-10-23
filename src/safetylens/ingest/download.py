@@ -35,13 +35,37 @@ class ManifestEntry(BaseModel):
 @dataclass(frozen=True)
 class DownloadResult:
     path: Path
-    status: Literal["downloaded", "unchanged"]
+    status: Literal["downloaded", "unchanged", "offline"]
     sha256: str
     size: int
 
 
 class IncompleteDownloadError(Exception):
     """The body ended before Content-Length bytes arrived."""
+
+
+class OfflineError(Exception):
+    """--offline was asked for, but a file is missing or does not match its recorded checksum."""
+
+
+def use_downloaded(source: Source, raw_dir: Path) -> DownloadResult:
+    """Use the zip already on disk without contacting NHTSA (`ingest --offline`).
+
+    Why: NHTSA refreshes its files daily, so a pinned snapshot is the only way to rebuild the
+    exact data the golden facts were computed from. The file must match the checksum recorded
+    when it was downloaded, so a truncated or edited zip is never loaded.
+    """
+    target = raw_dir / source.filename
+    known = _read_manifest(raw_dir).get(source.filename)
+    if known is None or not target.exists():
+        raise OfflineError(f"{source.filename} has not been downloaded yet; run without --offline")
+    digest = hashlib.sha256()
+    with target.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(CHUNK_BYTES), b""):
+            digest.update(chunk)
+    if digest.hexdigest() != known.sha256:
+        raise OfflineError(f"{source.filename} does not match its recorded sha256")
+    return DownloadResult(target, "offline", known.sha256, known.size)
 
 
 def _read_manifest(raw_dir: Path) -> dict[str, ManifestEntry]:

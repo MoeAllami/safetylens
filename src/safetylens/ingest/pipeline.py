@@ -17,7 +17,7 @@ import httpx
 import structlog
 
 from safetylens.config import Settings
-from safetylens.ingest.download import download
+from safetylens.ingest.download import download, use_downloaded
 from safetylens.ingest.flatfile import PARSER_VERSION, Column, ParseStats, parse_zip_to_parquet
 from safetylens.ingest.layouts import (
     COMPLAINT_COLUMNS,
@@ -70,14 +70,18 @@ def _parse_if_needed(source: Source, zip_path: Path, sha256: str, parquet_dir: P
 
 
 def run_ingest(
-    settings: Settings, slice_name: str, client: httpx.Client
+    settings: Settings, slice_name: str, client: httpx.Client | None
 ) -> tuple[list[SourceReport], duckdb.DuckDBPyConnection]:
+    """client=None means offline: load the zips already downloaded (checksums verified)."""
     sources = sources_for(slice_name)
     raw_dir = settings.data_dir / "raw"
     parquet_dir = settings.data_dir / "parquet"
     reports: list[SourceReport] = []
     for source in sources:
-        result = download(client, source, raw_dir)
+        if client is None:
+            result = use_downloaded(source, raw_dir)
+        else:
+            result = download(client, source, raw_dir)
         stats = _parse_if_needed(source, result.path, result.sha256, parquet_dir)
         log.info("parsed", source=source.name, **dataclasses.asdict(stats))
         reports.append(SourceReport(source, result.status, result.sha256, stats))

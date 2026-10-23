@@ -65,12 +65,18 @@ def ingest(
     slice_name: Annotated[
         SliceName, typer.Option("--slice", help="dev = 2020+, full = everything")
     ] = SliceName.dev,
+    offline: Annotated[
+        bool, typer.Option(help="use the zips already in data/raw (pinned snapshot, no HTTP)")
+    ] = False,
 ) -> None:
     """Download NHTSA files, drop personal data, and load them into DuckDB."""
     settings = Settings()
-    timeout = httpx.Timeout(30.0, read=120.0)
-    with httpx.Client(timeout=timeout, follow_redirects=True) as client:
-        reports, con = run_ingest(settings, slice_name.value, client)
+    if offline:
+        reports, con = run_ingest(settings, slice_name.value, None)
+    else:
+        timeout = httpx.Timeout(30.0, read=120.0)
+        with httpx.Client(timeout=timeout, follow_redirects=True) as client:
+            reports, con = run_ingest(settings, slice_name.value, client)
     with con:
         for kind in KINDS:
             if any(r.source.kind == kind for r in reports):

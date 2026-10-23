@@ -39,8 +39,9 @@ check:
 	uv run mypy --strict src
 	uv run pytest --cov --cov-fail-under=80
 
+# INGEST_FLAGS=--offline rebuilds from the zips already in data/raw (used by make acceptance).
 data-dev:
-	uv run safetylens ingest --slice dev
+	uv run safetylens ingest --slice dev $(INGEST_FLAGS)
 	uv run safetylens build
 	uv run safetylens index
 
