@@ -1,6 +1,6 @@
 # Progress
 
-**Current phase:** 5 — Web app
+**Current phase:** 5 — Web app (phase-check done, D12 accepted miss; PR pending)
 **Branch:** phase-5-web
 
 ## Done (2026-10-21)
@@ -130,12 +130,19 @@ variance (writer_1 p95 5.8-7.1 s across identical runs) plus the occasional retr
 Cost per question fell from $0.0161 to $0.0121. Haiku is fast but its citations often don't support the sentence.
 
 ## Next up
-1. Owner: `make serve`, try a question in the browser; spot-check judge verdicts in data/eval/judge-2026-10-22.md
-2. Owner: `/phase-check 5` (gate: make check, make e2e; D12 recorded as accepted miss), then PR, `/learn`
-3. Phase 6: answer cache keyed by normalized plan (also cuts repeat-question latency to ~0), error pages, Dockerfile,
-   README + data card + eval table + demo GIF, `make acceptance` on a fresh clone
+1. Push phase-5-web, PR, CI green, merge; `/learn` for Phase 5
+2. Phase 6 task 1: fix Phase 5 review notes 1-4 (close record-page cursors, model names with "/", bound the year
+   path param, e2e must fail if Playwright is missing), then the answer cache keyed by the normalized plan
+3. Phase 6 task 2: error pages (404/500/budget), Dockerfile (build only), structlog config review
+4. Phase 6 task 3: README (setup, diagram, data card, eval table, limitations, demo GIF), `scripts/check_docs.py`,
+   `make acceptance` via `scripts/fresh_clone_check.sh`
 
 ## Non-blocking review notes
+- Phase 5 review: record-page cursors never closed; vehicle links break for model names with "/"; unbounded year
+  param (huge -> 500, 0 -> all-years label); e2e importorskip lets make e2e pass without Playwright
+- Phase 5 review: NULL do_not_drive/park_outside would 500 the recall page; complaint NHTSA link is raw API JSON;
+  unmatched paths logged raw; slow asks hold threadpool workers; PII test skips 2-letter markers;
+  PLAN's /run-skill-generator not run (skill not available)
 - Phase 4 round 3: "2023,42" hides 42 (lookbehind skips digits after a comma/period); SDK errors (529, rate limit,
   connection) are not mapped to LLMError, so ask/eval crash; budget estimate uses the configured model's price but
   fallback may serve a pricier one; judge checks only the first sentence citing each ODI; ordinals not flagged
@@ -185,7 +192,7 @@ Cost per question fell from $0.0161 to $0.0121. Haiku is fast but its citations 
 | 2 Analytics | done (/phase-check PASS, 0 blocking) | make check, make dq exit 0; crosscheck 10/10 exact | 2026-10-22 |
 | 3 Search | done with D8 miss (owner accepted) | rerank recall@10 test 0.777 (< 0.80) | 2026-10-22 |
 | 4 Answers | done (/phase-check PASS, 0 blocking) | make check 140 passed; make eval PASS: D5 100%, D6 100%, D7 98%, D9 92%, 6/6 | 2026-10-22 |
-| 5 Web app | built; D12 missed, owner accepted; phase-check pending | make check 167 passed; make e2e 2 passed; make eval PASS, p95 9.8 s | 2026-10-22 |
+| 5 Web app | done with D12 miss (owner accepted); /phase-check: gates 1-2 exit 0, p95 gate missed, 0 blocking | make check 167 passed; make e2e 2 passed; p95 9.8 s (> 8 s) | 2026-10-22 |
 | 6 Polish | not started | – | – |
 
 ## Blockers / decisions needed
