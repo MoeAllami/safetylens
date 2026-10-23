@@ -156,11 +156,16 @@ reviewer found 2 blocking issues:
 2. the answer cache version covers prompts + writer only: a fix to SQL templates, compute, validator, template or
    retrieval settings keeps serving old cached answers (docstring claims it can't)
 
+Fixed (2026-10-22): blocking 1 (acceptance deletes the committed reports in the clone before the evals, so a crashed
+eval has no report to be graded from and FAILs); blocking 2 (cache version = package version + sha256 of
+answer/, search/, analytics/ sources and store/queries/*.sql + planner/writer models, effort, embed/rerank models,
+rerank depth); also non-blocking 1 (key uses the question when search_text is empty) and 7 (cache hits drop the first
+run's draft errors). 200 tests pass.
+
 ## Next up
-1. Fix blocking 1: clear evals/reports in the clone before the evals and FAIL when a step writes no new report
-2. Fix blocking 2: cache version includes package version + hash of store/queries/*.sql and the answer/search
-   source files + retrieval settings; key uses `search_text or question` (non-blocking 1); clear stale draft errors
-3. Re-run `make acceptance`, then `/phase-check 6`, mark PR #7 ready, merge, `/learn`
+1. Re-run `make acceptance` on the fix commit, then `/phase-check 6`
+2. Mark PR #7 ready, merge, `/learn`
+3. After v1: the remaining Phase 6 non-blocking notes (snapshot sha256 committed, HTMX error swaps, uvicorn tracebacks)
 
 ## Non-blocking review notes
 - Phase 6 review: data_version misses recall text/index rebuilds; pinned snapshot sha256 not committed;

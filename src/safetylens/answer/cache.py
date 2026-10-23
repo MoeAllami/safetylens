@@ -2,24 +2,29 @@
 
 Why the key is the normalized plan, not the question text: "F150 brake problems" and "brake
 complaints on the Ford F-150" resolve to the same intent, vehicle and filters, so they share an
-answer. The key also holds a data version and an answer version, so new data, a new prompt or a
-new writer model can never serve a stale answer. Only verified answers are stored.
+answer. The key also holds a data version and an answer version. The answer version hashes the
+code that decides what an answer says (prompts, SQL templates, compute, validator, template,
+retrieval) plus the model and retrieval settings, so new data, a code fix or a new model starts
+fresh instead of serving an old answer. Only verified answers are stored.
 """
 
 import hashlib
 import json
 import sqlite3
 import threading
+from importlib.resources import files
 from pathlib import Path
 
 import duckdb
 
-from safetylens.answer import prompts
+from safetylens import __version__
 from safetylens.answer.compute import parse_date
 from safetylens.answer.models import Answer, QueryPlan, ResolvedVehicle
 from safetylens.store.sql import load_sql
 
 CACHEABLE = ("answered", "fallback_template")
+# Everything under these package paths can change an answer; the web layer cannot.
+ANSWER_CODE = ("answer/*.py", "search/*.py", "analytics/*.py", "store/queries/*.sql")
 
 
 def data_version(con: duckdb.DuckDBPyConnection) -> str:
@@ -28,34 +33,49 @@ def data_version(con: duckdb.DuckDBPyConnection) -> str:
 
 
 def cache_key(
-    plan: QueryPlan, vehicles: list[ResolvedVehicle], data: str, answer_version: str
+    plan: QueryPlan,
+    vehicles: list[ResolvedVehicle],
+    data: str,
+    answer_version: str,
+    question: str = "",
 ) -> str:
+    # Retrieval searches the question itself when the plan has no search text, so then the
+    # question is part of what the answer depends on.
+    search = plan.search_text or question
     normalized = {
         "intent": plan.intent,
         "vehicles": [[v.make, v.model_key, v.year_from, v.year_to] for v in vehicles],
         "component_system": plan.component_system,
         "received": [str(parse_date(plan.received_from)), str(parse_date(plan.received_to))],
-        "search_text": " ".join(plan.search_text.lower().split()),
+        "search_text": " ".join(search.lower().split()),
         "data": data,
         "answer_version": answer_version,
     }
     return hashlib.sha256(json.dumps(normalized, sort_keys=True).encode()).hexdigest()
 
 
-def answer_version(writer: str) -> str:
-    """Changes whenever the prompts or the writer configuration (model, effort) change."""
-    text = "\n".join([prompts.PLANNER, prompts.WRITER, prompts.RETRY, writer])
-    return hashlib.sha256(text.encode()).hexdigest()[:16]
+def source_digest(root: Path, patterns: tuple[str, ...] = ANSWER_CODE) -> str:
+    """sha256 over the relative path and bytes of every file matching the patterns."""
+    digest = hashlib.sha256()
+    for path in sorted(p for pattern in patterns for p in root.glob(pattern)):
+        digest.update(path.relative_to(root).as_posix().encode() + b"\0" + path.read_bytes())
+    return digest.hexdigest()
+
+
+def answer_version(config: str, root: Path | None = None) -> str:
+    """Changes with the package version, the answer code (incl. prompts and SQL) or the config."""
+    code = source_digest(root or Path(str(files("safetylens"))))
+    return hashlib.sha256(f"{__version__}|{code}|{config}".encode()).hexdigest()[:16]
 
 
 class AnswerCache:
-    def __init__(self, path: Path, writer: str) -> None:
+    def __init__(self, path: Path, config: str) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         # One connection shared by request threads, so every use goes through the lock.
         self._db = sqlite3.connect(path, check_same_thread=False)
         self._db.execute(load_sql("cache_create"))
         self._lock = threading.Lock()
-        self.version = answer_version(writer)
+        self.version = answer_version(config)
 
     def get(self, key: str) -> Answer | None:
         with self._lock:

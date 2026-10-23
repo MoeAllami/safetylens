@@ -180,12 +180,14 @@ class Engine:
             with _timed(timings, "cache"):
                 if self._data_version is None:  # the DB is read-only while we run
                     self._data_version = data_version(self.con)
-                key = cache_key(plan, vehicles, self._data_version, self.cache.version)
+                version = self.cache.version
+                key = cache_key(plan, vehicles, self._data_version, version, question)
                 hit = self.cache.get(key)
             if hit is not None:
-                return hit.model_copy(
-                    update={"question": question, "cached": True, "writer_calls": 0}
-                )
+                # The first run's draft errors belong to that run, not to this cached reply.
+                fresh = {"question": question, "cached": True, "writer_calls": 0}
+                fresh |= {"first_draft_errors": [], "validation_errors": []}
+                return hit.model_copy(update=fresh)
         answer = self._answer(question, plan, vehicles, timings)
         if self.cache is not None and key is not None:
             self.cache.put(key, answer)  # only answered / fallback_template are stored

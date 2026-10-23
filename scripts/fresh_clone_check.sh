@@ -103,6 +103,9 @@ if step crosscheck make crosscheck; then
 else record D4 FAIL "see $LOGS/crosscheck.log"; fi
 
 # D5-D7, D9, D13 (and the D12 number): one golden eval with the real API.
+# The clone holds the committed reports; remove them so only a report this run wrote can be graded.
+# (D14 above already compared the README with the committed ones.) A crashed eval leaves no report: FAIL.
+rm -f evals/reports/answers-*.md evals/reports/retrieval-*.md
 step eval make eval
 report="$(latest answers)"
 metric() { grep -E "^$1" "$report" | head -1 | grep -oE "$2" | head -1; }

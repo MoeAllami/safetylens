@@ -37,9 +37,17 @@ def build_llm(settings: Settings, purpose: Literal["ask", "eval"]) -> AnthropicL
 
 
 def build_cache(settings: Settings) -> AnswerCache:
-    """The writer model and effort are part of the cache version: changing either starts fresh."""
-    writer = f"{settings.writer_model}:{settings.writer_effort}"
-    return AnswerCache(settings.data_dir / CACHE, writer)
+    """Models, effort and retrieval settings are part of the cache version, so changing any of
+    them starts fresh (the cache hashes the answer code itself)."""
+    parts = (
+        settings.planner_model,
+        settings.writer_model,
+        settings.writer_effort,
+        settings.embed_model,
+        settings.rerank_model,
+        settings.rerank_depth,
+    )
+    return AnswerCache(settings.data_dir / CACHE, ":".join(str(p) for p in parts))
 
 
 def build_engine(

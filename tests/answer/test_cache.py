@@ -6,7 +6,6 @@ import pytest
 from conftest import engine, plan
 from test_pipeline import BAD, GOOD
 
-from safetylens.answer import prompts
 from safetylens.answer.cache import AnswerCache, answer_version, cache_key, data_version
 from safetylens.answer.llm import FakeLLM
 from safetylens.answer.models import QueryPlan, ResolvedVehicle
@@ -70,11 +69,56 @@ def test_key_depends_on_data_and_answer_version(answer_db: duckdb.DuckDBPyConnec
     assert cache_key(plan(), [later], data, "v1") != base
 
 
-def test_answer_version_changes_with_prompts_and_writer(monkeypatch: pytest.MonkeyPatch) -> None:
-    v = answer_version("claude-sonnet-5-5:low")
-    assert answer_version("claude-sonnet-5-5:medium") != v
-    monkeypatch.setattr(prompts, "WRITER", prompts.WRITER + " ")
-    assert answer_version("claude-sonnet-5-5:low") != v
+def _tree(root: Path) -> Path:
+    for rel, text in {
+        "answer/prompts.py": "WRITER = 'a'",
+        "answer/validator.py": "def validate(): ...",
+        "store/queries/top_components.sql": "SELECT 1",
+        "web/app.py": "app = None",
+    }.items():
+        (root / rel).parent.mkdir(parents=True, exist_ok=True)
+        (root / rel).write_text(text, encoding="utf-8")
+    return root
+
+
+@pytest.mark.parametrize(
+    "changed", ["answer/prompts.py", "answer/validator.py", "store/queries/top_components.sql"]
+)
+def test_answer_version_changes_with_answer_code(tmp_path: Path, changed: str) -> None:
+    root = _tree(tmp_path)
+    before = answer_version("cfg", root)
+    (root / changed).write_text("changed", encoding="utf-8")
+    assert answer_version("cfg", root) != before
+
+
+def test_answer_version_ignores_web_code_but_not_config(tmp_path: Path) -> None:
+    root = _tree(tmp_path)
+    before = answer_version("sonnet:low", root)
+    (root / "web/app.py").write_text("app = 1", encoding="utf-8")
+    assert answer_version("sonnet:low", root) == before
+    assert answer_version("sonnet:medium", root) != before
+
+
+def test_real_package_is_hashed() -> None:
+    assert answer_version("x") == answer_version("x") != answer_version("y")
+
+
+def test_empty_search_text_keys_on_the_question(answer_db: duckdb.DuckDBPyConnection) -> None:
+    data, bare = data_version(answer_db), plan(search_text="")
+    sunroof = cache_key(bare, [F150], data, "v", "2022 F-150 sunroof shattering?")
+    general = cache_key(bare, [F150], data, "v", "2022 F-150 complaints?")
+    assert sunroof != general
+    assert cache_key(plan(), [F150], data, "v", "a") == cache_key(plan(), [F150], data, "v", "b")
+
+
+def test_cache_hit_drops_the_first_runs_draft_errors(
+    answer_db: duckdb.DuckDBPyConnection, tmp_path: Path
+) -> None:
+    llm = FakeLLM().script("planner", plan(), plan()).script("writer", BAD, GOOD)
+    eng = cached_engine(answer_db, llm, tmp_path / "c.sqlite")
+    assert eng.ask("q").first_draft_errors
+    hit = eng.ask("q")
+    assert hit.cached and hit.first_draft_errors == [] and hit.validation_errors == []
 
 
 def test_rebuilt_data_changes_the_version(answer_db: duckdb.DuckDBPyConnection) -> None:
