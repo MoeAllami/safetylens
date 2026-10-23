@@ -9,13 +9,14 @@ import json
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from itertools import zip_longest
 
 import duckdb
 
 from safetylens.answer import prompts
 from safetylens.answer.budget import BudgetExceeded
+from safetylens.answer.cache import AnswerCache, cache_key, data_version
 from safetylens.answer.compute import allowed_numbers, compute, known_systems, vehicle_filter
 from safetylens.answer.llm import LLM, LLMError, LLMRefusal
 from safetylens.answer.models import (
@@ -58,6 +59,8 @@ class Engine:
     reranker: Reranker
     rerank_depth: int = 20
     today: dt.date | None = None
+    cache: AnswerCache | None = None  # None for the eval, so it always measures fresh answers
+    _data_version: str | None = field(default=None, init=False, repr=False)
 
     def _planner_system(self) -> str:
         lo, hi = self.con.execute(load_sql("data_coverage")).fetchone() or (None, None)
@@ -172,6 +175,29 @@ class Engine:
                 )
             vehicles.append(res.vehicle)
 
+        key = None
+        if self.cache is not None:
+            with _timed(timings, "cache"):
+                if self._data_version is None:  # the DB is read-only while we run
+                    self._data_version = data_version(self.con)
+                key = cache_key(plan, vehicles, self._data_version, self.cache.version)
+                hit = self.cache.get(key)
+            if hit is not None:
+                return hit.model_copy(
+                    update={"question": question, "cached": True, "writer_calls": 0}
+                )
+        answer = self._answer(question, plan, vehicles, timings)
+        if self.cache is not None and key is not None:
+            self.cache.put(key, answer)  # only answered / fallback_template are stored
+        return answer
+
+    def _answer(
+        self,
+        question: str,
+        plan: QueryPlan,
+        vehicles: list[ResolvedVehicle],
+        timings: dict[str, float],
+    ) -> Answer:
         with _timed(timings, "sql"):
             result = compute(self.con, plan, vehicles)
         with _timed(timings, "retrieve"):

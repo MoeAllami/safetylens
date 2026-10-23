@@ -10,12 +10,14 @@ import anthropic
 import duckdb
 
 from safetylens.answer.budget import Budget
+from safetylens.answer.cache import AnswerCache
 from safetylens.answer.llm import AnthropicLLM, Role, RoleConfig
 from safetylens.answer.pipeline import Engine
 from safetylens.config import Settings
 from safetylens.search import embed, rerank
 
 LEDGER = "llm_usage.jsonl"
+CACHE = "cache/answers.sqlite"
 
 
 def build_llm(settings: Settings, purpose: Literal["ask", "eval"]) -> AnthropicLLM:
@@ -34,7 +36,18 @@ def build_llm(settings: Settings, purpose: Literal["ask", "eval"]) -> AnthropicL
     )
 
 
-def build_engine(settings: Settings, con: duckdb.DuckDBPyConnection, llm: AnthropicLLM) -> Engine:
+def build_cache(settings: Settings) -> AnswerCache:
+    """The writer model and effort are part of the cache version: changing either starts fresh."""
+    writer = f"{settings.writer_model}:{settings.writer_effort}"
+    return AnswerCache(settings.data_dir / CACHE, writer)
+
+
+def build_engine(
+    settings: Settings,
+    con: duckdb.DuckDBPyConnection,
+    llm: AnthropicLLM,
+    cache: AnswerCache | None = None,
+) -> Engine:
     return Engine(
         con=con,
         llm=llm,
@@ -43,4 +56,5 @@ def build_engine(settings: Settings, con: duckdb.DuckDBPyConnection, llm: Anthro
         ),
         reranker=rerank.default_reranker(settings.rerank_model, settings.embed_device),
         rerank_depth=settings.rerank_depth,
+        cache=cache,
     )

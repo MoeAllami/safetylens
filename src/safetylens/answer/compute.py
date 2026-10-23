@@ -22,7 +22,7 @@ def known_systems(con: duckdb.DuckDBPyConnection) -> list[str]:
     return [str(r[0]) for r in con.execute(load_sql("known_systems")).fetchall()]
 
 
-def _date(value: str | None) -> dt.date | None:
+def parse_date(value: str | None) -> dt.date | None:
     if not value:
         return None
     try:
@@ -37,8 +37,8 @@ def vehicle_filter(v: ResolvedVehicle, plan: QueryPlan, system: str | None) -> t
         model=v.model_key,
         year_from=v.year_from,
         year_to=v.year_to,
-        received_from=_date(plan.received_from),
-        received_to=_date(plan.received_to),
+        received_from=parse_date(plan.received_from),
+        received_to=parse_date(plan.received_to),
         component_system=system,
     )
 
@@ -87,5 +87,7 @@ def allowed_numbers(result: ComputeResult, plan: QueryPlan) -> set[str]:
     values: list[Any] = [result.tables]
     values += [v.label for v in result.vehicles]
     # Only dates that parsed and reached SQL; a malformed planner date vouches for nothing.
-    values += [d.isoformat() for d in (_date(plan.received_from), _date(plan.received_to)) if d]
+    values += [
+        d.isoformat() for d in (parse_date(plan.received_from), parse_date(plan.received_to)) if d
+    ]
     return numbers_from_values(values)
