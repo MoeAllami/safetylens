@@ -1,7 +1,7 @@
 # Progress
 
-**Current phase:** 5 — Web app (phase-check done, D12 accepted miss; PR pending)
-**Branch:** phase-5-web
+**Current phase:** 6 — Harden (make acceptance PASS; /phase-check 6 pending)
+**Branch:** phase-6-harden
 
 ## Done (2026-10-21)
 - uv package (Python 3.12), typer + dev deps (ruff, mypy, pytest, pytest-cov, pre-commit, respx)
@@ -129,13 +129,29 @@ D12 decision (owner, 2026-10-22): accepted as a near-miss, like D8 in Phase 3. T
 variance (writer_1 p95 5.8-7.1 s across identical runs) plus the occasional retry; p95 of 40 is set by 2 answers.
 Cost per question fell from $0.0161 to $0.0121. Haiku is fast but its citations often don't support the sentence.
 
+## Phase 6 — Harden (branch `phase-6-harden`, draft PR #7)
+Done (2026-10-22):
+- Phase 5 review fixes 1-7 (cursors closed, year-first vehicle URLs incl. "/" in model names, bounded years,
+  e2e fails without Playwright, NULL recall flags, unmatched routes logged as "unmatched", chart-attribute test).
+- Answer cache (SQLite, `data/cache/answers.sqlite`): key = normalized plan + data version + prompt/writer version;
+  only answered/fallback stored; eval never uses it; `safetylens cache-clear`.
+- `safetylens/logs.py`: JSON off-terminal, redaction of narrative/question/PII keys; 404/500 error pages without
+  tracebacks; answer CLI commands moved to `cli_answer.py` (cli.py was at 299 lines).
+- Dockerfile (CPU torch, data mounted, fts preinstalled) built in CI; CI jobs: check (+ make docs), e2e, docker, gitleaks.
+- README (quickstart, diagram, honesty rules, data card, results, limitations, costs), `docs/demo.gif`,
+  `scripts/check_docs.py` (results table generated from the latest reports), `evals/accepted_misses.yaml` (D8, D12).
+- `ingest --offline` (pinned snapshot, sha256 verified) and `make acceptance` (`scripts/fresh_clone_check.sh`).
+First acceptance run FAILED: NHTSA had updated its files, so 5 golden counts were 1-3 higher (D9 78%); plus three
+script bugs (p95 parsed as empty and reported PASS, docs checked after the eval rewrote the report, gh could not map
+the clone's local origin). Owner decision: acceptance pins the snapshot (`ingest --offline`); D4 still checks live data.
+`make acceptance` on 6980e47 (2026-10-22): **ACCEPTANCE PASS**. D1 install + data-dev 600 s, serve smoke OK; D2-D4 PASS
+(crosscheck 10/10 within 2%); D5 100%, D6 100%, D7 97%, D9 88% + refusals 6/6; D8 ACCEPTED 0.777; D10 194 passed;
+D11 2 passed; D12 ACCEPTED p95 8.1 s (p50 4.7 s); D13 $0.0110/question; D14 PASS; D15 PASS (CI green incl. gitleaks).
+
 ## Next up
-1. Push phase-5-web, PR, CI green, merge; `/learn` for Phase 5
-2. Phase 6 task 1: fix Phase 5 review notes 1-4 (close record-page cursors, model names with "/", bound the year
-   path param, e2e must fail if Playwright is missing), then the answer cache keyed by the normalized plan
-3. Phase 6 task 2: error pages (404/500/budget), Dockerfile (build only), structlog config review
-4. Phase 6 task 3: README (setup, diagram, data card, eval table, limitations, demo GIF), `scripts/check_docs.py`,
-   `make acceptance` via `scripts/fresh_clone_check.sh`
+1. Owner: `/phase-check 6`; then mark PR #7 ready, merge, `/learn`
+2. Optional after v1: refresh golden facts when moving to a newer NHTSA snapshot (owner unlocks golden.yaml)
+3. Optional: streaming the written answer (perceived latency), Haiku-first writer with Sonnet judge-gated retry
 
 ## Non-blocking review notes
 - Phase 5 review: record-page cursors never closed; vehicle links break for model names with "/"; unbounded year
@@ -180,9 +196,9 @@ Cost per question fell from $0.0161 to $0.0121. Haiku is fast but its citations 
 | Crosscheck vs live API (10 vehicles) | 10/10, max diff 0.00% | 2026-10-22 |
 | Embedding throughput (docs/s) | 769 (RTX 4060 Ti) | 2026-10-22 |
 | Hybrid recall@10 (test split) | 0.770 hybrid / 0.777 reranked | 2026-10-22 |
-| Golden pass rate | 92% (37/40), refusals 6/6 (strict validator) | 2026-10-22 |
-| p95 latency | 9.8 s final run (8.1-10.1 s range; p50 4.6 s) | 2026-10-22 |
-| Mean cost / question | $0.0121 (+ judge $0.39 per eval run) | 2026-10-22 |
+| Golden pass rate | 88% (35/40) on the fresh clone, refusals 6/6 | 2026-10-22 |
+| p95 latency | 8.1 s acceptance run (8.1-10.1 s range; p50 4.7 s) | 2026-10-22 |
+| Mean cost / question | $0.0110 (+ judge $0.38 per eval run) | 2026-10-22 |
 
 ## Phase log
 | Phase | Status | Gate result | Date |
@@ -193,7 +209,7 @@ Cost per question fell from $0.0161 to $0.0121. Haiku is fast but its citations 
 | 3 Search | done with D8 miss (owner accepted) | rerank recall@10 test 0.777 (< 0.80) | 2026-10-22 |
 | 4 Answers | done (/phase-check PASS, 0 blocking) | make check 140 passed; make eval PASS: D5 100%, D6 100%, D7 98%, D9 92%, 6/6 | 2026-10-22 |
 | 5 Web app | done with D12 miss (owner accepted); /phase-check: gates 1-2 exit 0, p95 gate missed, 0 blocking | make check 167 passed; make e2e 2 passed; p95 9.8 s (> 8 s) | 2026-10-22 |
-| 6 Polish | not started | – | – |
+| 6 Harden | make acceptance PASS (D8, D12 accepted); phase-check pending | fresh clone 6980e47: D1-D15 | 2026-10-22 |
 
 ## Blockers / decisions needed
 - OS decided: native Windows with Git Bash; uv, make, jq, gh installed via winget (restart the terminal so PATH picks them up)

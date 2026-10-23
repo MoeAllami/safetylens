@@ -105,12 +105,12 @@ From `evals/reports/answers-2026-10-22.md` and `evals/reports/retrieval-2026-10-
 |---|---|---|---|---|
 | D5 | Numbers grounded in SQL | 100% | 100% | pass |
 | D6 | Citations valid | 100% | 100% | pass |
-| D7 | Citations support the claim (LLM judge) | >= 90% | 98% | pass |
+| D7 | Citations support the claim (LLM judge) | >= 90% | 97% | pass |
 | D8 | Retrieval recall@10 (test split) | >= 0.80 | 0.777 | accepted miss |
-| D9 | Golden questions pass (of 40) | >= 85% | 90% | pass |
+| D9 | Golden questions pass (of 40) | >= 85% | 88% | pass |
 | D9 | Out-of-scope questions refused | all | 6/6 | pass |
-| D12 | Latency p95 (p50) | < 8 s | 9.8 s (4.6 s) | accepted miss |
-| D13 | Mean cost per question | reported | $0.0121 | pass |
+| D12 | Latency p95 (p50) | < 8 s | 8.1 s (4.7 s) | accepted miss |
+| D13 | Mean cost per question | reported | $0.0110 | pass |
 <!-- eval-table:end -->
 
 Other checks: `make dq` passes, `make crosscheck` matches NHTSA for 10/10 vehicles, ingest is
