@@ -67,8 +67,16 @@ class ItemResult(BaseModel):
     first_draft_ok: bool | None
     latency_s: float
     cost_usd: float
+    timings: dict[str, float] = {}
     verdicts: list[Verdict] = []
     first_draft_errors: list[str] = []
+
+
+def _pct(values: list[float], q: int) -> float:
+    """The q-th percentile (statistics.quantiles needs two or more values)."""
+    if len(values) > 1:
+        return quantiles(values, n=100)[q - 1]
+    return values[0] if values else 0.0
 
 
 class GoldenReport(BaseModel):
@@ -94,13 +102,20 @@ class GoldenReport(BaseModel):
             "refusals_correct": float(sum(i.passed for i in oos)),
             "refusals_total": float(len(oos)),
             "first_draft_ok": self._rate([bool(i.first_draft_ok) for i in answered]),
-            "p50_latency_s": quantiles(lat, n=100)[49]
-            if len(lat) > 1
-            else (lat[0] if lat else 0.0),
-            "p95_latency_s": quantiles(lat, n=100)[94]
-            if len(lat) > 1
-            else (lat[0] if lat else 0.0),
+            "p50_latency_s": _pct(lat, 50),
+            "p95_latency_s": _pct(lat, 95),
             "mean_cost_usd": mean(i.cost_usd for i in self.items) if self.items else 0.0,
+        }
+
+    def stage_latency(self) -> dict[str, tuple[float, float]]:
+        """p50 and p95 seconds per pipeline stage; a stage an answer skipped counts as 0 s."""
+        stages = sorted({s for i in self.items for s in i.timings})
+        return {
+            s: (
+                _pct([i.timings.get(s, 0.0) for i in self.items], 50),
+                _pct([i.timings.get(s, 0.0) for i in self.items], 95),
+            )
+            for s in stages
         }
 
     def passed(self) -> bool:
@@ -245,6 +260,7 @@ def score_item(
         first_draft_errors=answer.first_draft_errors,
         latency_s=answer.latency_s,
         cost_usd=answer.cost_usd,
+        timings=answer.timings,
     )
 
 

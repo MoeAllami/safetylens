@@ -1,7 +1,7 @@
 # Progress
 
-**Current phase:** 4 — Answer engine + evals (phase-check PASS; PR pending)
-**Branch:** phase-4-answers
+**Current phase:** 5 — Web app (phase-check done, D12 accepted miss; PR pending)
+**Branch:** phase-5-web
 
 ## Done (2026-10-21)
 - uv package (Python 3.12), typer + dev deps (ruff, mypy, pytest, pytest-cov, pre-commit, respx)
@@ -102,16 +102,47 @@ Owner decisions (2026-10-21):
 `tests/fixtures/complaints_sample.txt` (2,000 rows, 1,380 complaints, PII fields blanked) and
 `recalls_sample.txt` (200 rows), built by `scripts/make_fixtures.py`, read by `tests/ingest/test_real_sample.py`.
 
+## Phase 5 — Web app (branch `phase-5-web`)
+Done (2026-10-22): FastAPI + Jinja2 + HTMX + Pico (`src/safetylens/web/`): `/`, `POST /ask` (HTMX partial, full page
+without HTMX), `/complaint/{odi}`, `/recall/{campaign}`, `/vehicle/{make}/{model}/{year}`; Altair charts from SQL rows;
+disclaimer + attribution on every page; model text escaped before citation links; htmx/pico/vega vendored in
+`web/static` (no CDN). `safetylens serve` / `make serve` (127.0.0.1:8000, engine loaded once). `make e2e`: Playwright,
+FakeLLM on a test DB, ask -> answer -> citation -> complaint page -> NHTSA link + recall -> vehicle page (2 passed).
+SDK errors (529, rate limit, connection, out of credit) now become LLMError (round-3 note 2). Per-stage timings on every
+answer and a "Where the time goes" table in the eval report; subset runs (`--ids`) write the judge review to
+data/eval/subset/. `make check`: 167 passed, 94% coverage. Record pages on the dev DB: 0.02-0.10 s.
+Latency work (10-item subset of slow items, same ids each run):
+| change | first draft ok | p50 / p95 | golden (10) |
+|---|---|---|---|
+| baseline | 30% | 10.3 / 14.1 s | 70% |
+| writer gets allowed_numbers; narrative campaign ids not citable | 50% | 8.2 / 12.3 s | 90% |
+| + writer effort low (env only, not yet in .env) | 70% | 6.7 / 13.2 s | 100% |
+| + <= 120 words, explicit "never the word one", max_tokens 2000 (effort low in .env) | 70% | 6.3 / 8.7 s | 90% |
+Full `make eval` (40 items), 2026-10-22:
+| run | first draft ok | p50 / p95 | D7 | golden | result |
+|---|---|---|---|---|---|
+| 120 words, Sonnet writer | 100% | 4.9 / 8.1 s | 98% | 90% | PASS (D12 miss by 0.1 s) |
+| 100 words, at most 3 components | 88% | 4.8 / 10.1 s | 97% | 90% | PASS, slower: reverted |
+| Haiku writer (env only) | 50% | 4.4 / 7.1 s | 87% | 68% | FAIL: rejected |
+| 120 words, Sonnet (final, committed report) | 85% | 4.6 / 9.8 s | 98% | 90% (6/6) | PASS |
+D12 decision (owner, 2026-10-22): accepted as a near-miss, like D8 in Phase 3. The tail is API response time
+variance (writer_1 p95 5.8-7.1 s across identical runs) plus the occasional retry; p95 of 40 is set by 2 answers.
+Cost per question fell from $0.0161 to $0.0121. Haiku is fast but its citations often don't support the sentence.
+
 ## Next up
-1. Push phase-4-answers, open the PR, CI green, merge; `/learn` for Phase 4
-2. Phase 5 task 1: FastAPI app + Jinja2/HTMX/Pico skeleton: `/` (question box), `/ask` partial rendering Answer
-   (text, citations linking to record pages, status), `safetylens serve`; TestClient tests with FakeLLM
-3. Phase 5 task 2: record pages `/complaint/{odino}` and `/recall/{campno}` (no PII) + Altair chart for
-   trend/top_components from ComputeResult, plus the "complaints are unverified, not defect rates" disclaimer
-4. Phase 5 task 3: cut p95 below 8 s: keep embedder/reranker loaded once per process, cache resolver/known
-   systems, measure where time goes (planner, retrieval, writer, retries), then `make e2e`
+1. Push phase-5-web, PR, CI green, merge; `/learn` for Phase 5
+2. Phase 6 task 1: fix Phase 5 review notes 1-4 (close record-page cursors, model names with "/", bound the year
+   path param, e2e must fail if Playwright is missing), then the answer cache keyed by the normalized plan
+3. Phase 6 task 2: error pages (404/500/budget), Dockerfile (build only), structlog config review
+4. Phase 6 task 3: README (setup, diagram, data card, eval table, limitations, demo GIF), `scripts/check_docs.py`,
+   `make acceptance` via `scripts/fresh_clone_check.sh`
 
 ## Non-blocking review notes
+- Phase 5 review: record-page cursors never closed; vehicle links break for model names with "/"; unbounded year
+  param (huge -> 500, 0 -> all-years label); e2e importorskip lets make e2e pass without Playwright
+- Phase 5 review: NULL do_not_drive/park_outside would 500 the recall page; complaint NHTSA link is raw API JSON;
+  unmatched paths logged raw; slow asks hold threadpool workers; PII test skips 2-letter markers;
+  PLAN's /run-skill-generator not run (skill not available)
 - Phase 4 round 3: "2023,42" hides 42 (lookbehind skips digits after a comma/period); SDK errors (529, rate limit,
   connection) are not mapped to LLMError, so ask/eval crash; budget estimate uses the configured model's price but
   fallback may serve a pricier one; judge checks only the first sentence citing each ODI; ordinals not flagged
@@ -150,8 +181,8 @@ Owner decisions (2026-10-21):
 | Embedding throughput (docs/s) | 769 (RTX 4060 Ti) | 2026-10-22 |
 | Hybrid recall@10 (test split) | 0.770 hybrid / 0.777 reranked | 2026-10-22 |
 | Golden pass rate | 92% (37/40), refusals 6/6 (strict validator) | 2026-10-22 |
-| p95 latency | 12.4 s (p50 7.8 s) | 2026-10-22 |
-| Mean cost / question | $0.0161 (+ judge $0.38 per eval run) | 2026-10-22 |
+| p95 latency | 9.8 s final run (8.1-10.1 s range; p50 4.6 s) | 2026-10-22 |
+| Mean cost / question | $0.0121 (+ judge $0.39 per eval run) | 2026-10-22 |
 
 ## Phase log
 | Phase | Status | Gate result | Date |
@@ -161,7 +192,7 @@ Owner decisions (2026-10-21):
 | 2 Analytics | done (/phase-check PASS, 0 blocking) | make check, make dq exit 0; crosscheck 10/10 exact | 2026-10-22 |
 | 3 Search | done with D8 miss (owner accepted) | rerank recall@10 test 0.777 (< 0.80) | 2026-10-22 |
 | 4 Answers | done (/phase-check PASS, 0 blocking) | make check 140 passed; make eval PASS: D5 100%, D6 100%, D7 98%, D9 92%, 6/6 | 2026-10-22 |
-| 5 Web app | not started | – | – |
+| 5 Web app | done with D12 miss (owner accepted); /phase-check: gates 1-2 exit 0, p95 gate missed, 0 blocking | make check 167 passed; make e2e 2 passed; p95 9.8 s (> 8 s) | 2026-10-22 |
 | 6 Polish | not started | – | – |
 
 ## Blockers / decisions needed

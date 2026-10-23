@@ -54,3 +54,14 @@ One entry per phase, written in your own words (the `/learn` skill helps).
 - **What confused me:**
 - **Quiz answers + feedback:**
 - **Read next:**
+
+### 2026-10-22 — Phase 4
+- **Concepts:** structured outputs as a contract between the model and code (`answer/llm.py::AnthropicLLM.structured`, `answer/models.py::QueryPlan`, `WriterOutput`); grounding validation with retry and a deterministic fallback (`answer/numbers.py`, `answer/validator.py::validate`, `answer/pipeline.py::Engine._ask`, `answer/template.py::template_answer`); evaluating with deterministic fact checks plus an LLM judge (`answer/golden.py::check_facts`, `judge_citations`, `GoldenReport.passed`).
+- **Q&A:**
+  - *The planner returns `component_system: "BRAKE FAILURE"` (not a real system). What happens, and what if the pipeline didn't reset it?* The schema only guarantees shape; the value is still invented. `pipeline.py:127` resets unknown systems to None. Without it the SQL filter matches nothing, the writer says "0 complaints", and the validator passes because 0 is in the SQL rows. Only golden facts in `make eval` would catch it; no unit test covers the reset (worth adding). Structured output guarantees the shape, not the truth: check values against the DB.
+  - *numbers_grounded is 100%. Why doesn't that prove the numbers are right?* The validator checks membership, not binding: "4 engine complaints" passes if 4 is the brake count somewhere in the rows. Weaknesses such as dates splitting into days were found by review, not tests. Golden facts check the structured result, not the prose, and the judge only checks citations. A check proves only what it compares.
+  - *Why are facts checked on structured results and only citation support given to an LLM judge? Why is 98% D7 weaker than 100% D5?* Deterministic checks are exact, repeatable and free; "does this narrative support this sentence" needs language understanding. The judge is the same model family as the writer (shared blind spots), varies between runs, and judges only the first sentence per ODI (reviewer note). The owner's spot-check of `data/eval/judge-<date>.md` calibrates it. Use the judge only where code can't decide, and audit it.
+- **Read next:**
+  - Structured outputs: https://docs.claude.com/en/docs/build-with-claude/structured-outputs
+  - Reducing hallucinations / grounding: https://docs.claude.com/en/docs/test-and-evaluate/strengthen-guardrails/reduce-hallucinations
+  - LLM-as-a-judge (Zheng et al., 2023): https://arxiv.org/abs/2306.05685

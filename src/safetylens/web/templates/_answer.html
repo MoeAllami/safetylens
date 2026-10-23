@@ -1,0 +1,30 @@
+{% from "_chart.html" import chart %}
+<article id="answer-card" data-status="{{ answer.status }}">
+  {% if answer.status == "clarify" %}
+    <p>Which vehicle did you mean?</p>
+    <ul>{% for option in answer.clarify_options %}<li>{{ option }}</li>{% endfor %}</ul>
+  {% else %}
+    {{ answer_html }}
+  {% endif %}
+  {% if answer.status == "fallback_template" %}
+    <p><small>The written answer could not be verified, so this summary was built directly from the records.</small></p>
+  {% endif %}
+  {% for spec in charts %}{{ chart(spec) }}{% endfor %}
+  {% for table in tables %}
+    <details {% if loop.first %}open{% endif %}>
+      <summary>{{ table.title }}</summary>
+      <div class="overflow-auto">
+      <table class="striped">
+        <thead><tr>{% for col in table.columns %}<th>{{ col | replace("_", " ") }}</th>{% endfor %}</tr></thead>
+        <tbody>
+        {% for row in table.rows %}
+          <tr>{% for col in table.columns %}
+            <td>{% if col == "campno" %}<a href="/recall/{{ row[col] }}">{{ row[col] }}</a>{% elif row[col] is iterable and row[col] is not string %}{{ row[col] | join("; ") }}{% elif row[col] is none %}–{% else %}{{ row[col] }}{% endif %}</td>
+          {% endfor %}</tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    </details>
+  {% endfor %}
+</article>
